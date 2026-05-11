@@ -3,13 +3,17 @@ package com.unotangozero.app.presentation.budget
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.budget.EnvelopeBudgetRepository
+import com.unotangozero.app.data.categories.FinancialCategoryRepository
 import com.unotangozero.app.domain.models.BudgetEnvelope
+import com.unotangozero.app.domain.models.FinancialCategory
+import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.MonthlyBudgetSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -24,7 +28,8 @@ data class EnvelopeBudgetFormState(
 
 @HiltViewModel
 class EnvelopeBudgetViewModel @Inject constructor(
-    private val repository: EnvelopeBudgetRepository
+    private val repository: EnvelopeBudgetRepository,
+    categoryRepository: FinancialCategoryRepository
 ) : ViewModel() {
     val summary: StateFlow<MonthlyBudgetSummary> = repository.currentMonthSummary
         .stateIn(
@@ -39,6 +44,10 @@ class EnvelopeBudgetViewModel @Inject constructor(
             )
         )
 
+    val expenseCategories: StateFlow<List<FinancialCategory>> = categoryRepository.categories
+        .map { list -> list.filter { !it.isArchived && it.type == FinancialCategoryType.EXPENSE } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _form = MutableStateFlow(EnvelopeBudgetFormState())
     val form: StateFlow<EnvelopeBudgetFormState> = _form.asStateFlow()
 
@@ -46,6 +55,7 @@ class EnvelopeBudgetViewModel @Inject constructor(
     val message: StateFlow<String?> = _message.asStateFlow()
 
     fun onCategoryChange(value: String) { _form.value = _form.value.copy(category = value) }
+    fun onCategorySelected(category: FinancialCategory) { _form.value = _form.value.copy(category = category.displayLabel) }
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
     fun onRolloverChange(value: Boolean) { _form.value = _form.value.copy(rolloverEnabled = value) }
 
