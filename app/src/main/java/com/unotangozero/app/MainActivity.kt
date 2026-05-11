@@ -1,8 +1,13 @@
 package com.unotangozero.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.agenda.AgendaRoute
 import com.unotangozero.app.presentation.backup.BackupRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
@@ -66,6 +74,8 @@ private fun TangoTheme(content: @Composable () -> Unit) {
 
 @Composable
 private fun TangoAppRoot() {
+    RequestNotificationPermissionOnce()
+
     var selectedIndex by remember { mutableIntStateOf(0) }
     var extraDestination by remember { mutableStateOf(ExtraDestination.MORE) }
 
@@ -109,6 +119,27 @@ private fun TangoAppRoot() {
                     ExtraDestination.BACKUP -> BackupRoute()
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RequestNotificationPermissionOnce() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = {}
+    )
+
+    LaunchedEffect(Unit) {
+        val permissionStatus = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+        if (permissionStatus != PackageManager.PERMISSION_GRANTED) {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }
