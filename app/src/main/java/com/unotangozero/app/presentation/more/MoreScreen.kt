@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EventNote
@@ -52,7 +53,8 @@ fun MoreRoute(
     onOpenMovements: () -> Unit,
     onOpenBills: () -> Unit,
     onOpenGoals: () -> Unit,
-    onOpenBudget: () -> Unit
+    onOpenBudget: () -> Unit,
+    onOpenReports: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -77,6 +79,7 @@ fun MoreRoute(
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
         item { MoreCard(Icons.Default.Payments, "Movimentações", "Cadastre receitas, despesas e transferências entre contas.", onOpenMovements) }
         item { MoreCard(Icons.Default.PieChart, "Orçamento", "Distribua receitas em envelopes mensais por categoria.", onOpenBudget) }
+        item { MoreCard(Icons.Default.BarChart, "Relatórios financeiros", "Veja receitas, despesas e categorias por mês.", onOpenReports) }
         item { MoreCard(Icons.Default.EventNote, "Contas planejadas", "Controle contas a pagar e a receber.", onOpenBills) }
         item { MoreCard(Icons.Default.Flag, "Metas financeiras", "Acompanhe objetivos de economia e depósitos manuais.", onOpenGoals) }
         item { MoreCard(Icons.Default.CreditCard, "Dívidas", "Controle dívidas, vencimentos e quitações.", onOpenDebts) }
