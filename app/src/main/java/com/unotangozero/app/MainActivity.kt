@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import com.unotangozero.app.presentation.accounts.AccountsRoute
 import com.unotangozero.app.presentation.agenda.AgendaRoute
 import com.unotangozero.app.presentation.backup.BackupRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
@@ -57,7 +58,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class ExtraDestination { MORE, ACCOUNTS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -109,8 +110,10 @@ private fun TangoAppRoot() {
                         onOpenShopping = { extraDestination = ExtraDestination.SHOPPING },
                         onOpenNotes = { extraDestination = ExtraDestination.NOTES },
                         onOpenSettings = { extraDestination = ExtraDestination.SETTINGS },
-                        onOpenBackup = { extraDestination = ExtraDestination.BACKUP }
+                        onOpenBackup = { extraDestination = ExtraDestination.BACKUP },
+                        onOpenAccounts = { extraDestination = ExtraDestination.ACCOUNTS }
                     )
+                    ExtraDestination.ACCOUNTS -> AccountsRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
                     ExtraDestination.HABITS -> HabitsRoute()
                     ExtraDestination.SHOPPING -> ShoppingRoute()
