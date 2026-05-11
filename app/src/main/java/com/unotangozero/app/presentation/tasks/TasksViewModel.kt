@@ -21,6 +21,17 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
 
+data class TaskEditorUiState(
+    val editingTask: Task? = null,
+    val title: String = "",
+    val dueDate: LocalDate = LocalDate.now(),
+    val category: TaskCategory = TaskCategory.PERSONAL,
+    val priority: Priority = Priority.MEDIUM,
+    val recurrenceType: RecurrenceType = RecurrenceType.NONE
+) {
+    val isEditing: Boolean = editingTask != null
+}
+
 @HiltViewModel
 class TasksViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -29,56 +40,89 @@ class TasksViewModel @Inject constructor(
 ) : ViewModel() {
     val tasks: StateFlow<List<Task>> = taskRepository
         .observeAll()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _newTaskTitle = MutableStateFlow("")
-    val newTaskTitle: StateFlow<String> = _newTaskTitle.asStateFlow()
-
-    private val _selectedRecurrenceType = MutableStateFlow(RecurrenceType.NONE)
-    val selectedRecurrenceType: StateFlow<RecurrenceType> = _selectedRecurrenceType.asStateFlow()
+    private val _editorState = MutableStateFlow(TaskEditorUiState())
+    val editorState: StateFlow<TaskEditorUiState> = _editorState.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onNewTaskTitleChange(value: String) {
-        _newTaskTitle.value = value
+    fun onTitleChange(value: String) {
+        _editorState.value = _editorState.value.copy(title = value)
+    }
+
+    fun onDueDatePreviousDay() {
+        _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.minusDays(1))
+    }
+
+    fun onDueDateNextDay() {
+        _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.plusDays(1))
+    }
+
+    fun onCategoryChange(category: TaskCategory) {
+        _editorState.value = _editorState.value.copy(category = category)
+    }
+
+    fun onPriorityChange(priority: Priority) {
+        _editorState.value = _editorState.value.copy(priority = priority)
     }
 
     fun onRecurrenceTypeChange(value: RecurrenceType) {
-        _selectedRecurrenceType.value = value
+        _editorState.value = _editorState.value.copy(recurrenceType = value)
     }
 
-    fun createTodayTask() {
-        val title = _newTaskTitle.value.trim()
+    fun startEditing(task: Task) {
+        _editorState.value = TaskEditorUiState(
+            editingTask = task,
+            title = task.title,
+            dueDate = task.dueDate,
+            category = task.category,
+            priority = task.priority,
+            recurrenceType = task.recurrenceType ?: RecurrenceType.NONE
+        )
+    }
+
+    fun cancelEditing() {
+        _editorState.value = TaskEditorUiState()
+    }
+
+    fun saveTaskFromEditor() {
+        val state = _editorState.value
+        val title = state.title.trim()
         if (title.isBlank()) {
             _message.value = "Digite um título para a tarefa."
             return
         }
 
         viewModelScope.launch {
-            val recurrenceType = _selectedRecurrenceType.value
-            val task = Task(
+            val recurrenceType = state.recurrenceType
+            val task = state.editingTask?.copy(
                 title = title,
-                dueDate = LocalDate.now(),
-                category = TaskCategory.PERSONAL,
-                priority = Priority.MEDIUM,
+                dueDate = state.dueDate,
+                category = state.category,
+                priority = state.priority,
+                isRecurring = recurrenceType != RecurrenceType.NONE,
+                recurrenceType = recurrenceType.takeIf { it != RecurrenceType.NONE },
+                updatedAt = LocalDateTime.now()
+            ) ?: Task(
+                title = title,
+                dueDate = state.dueDate,
+                category = state.category,
+                priority = state.priority,
                 isRecurring = recurrenceType != RecurrenceType.NONE,
                 recurrenceType = recurrenceType.takeIf { it != RecurrenceType.NONE }
             )
 
             taskRepository.save(task)
                 .onSuccess {
-                    scheduleReminderIfEnabled(task)
-                    _newTaskTitle.value = ""
-                    _selectedRecurrenceType.value = RecurrenceType.NONE
-                    _message.value = "Tarefa criada."
+                    reminderScheduler.cancel(task.id)
+                    if (!task.isCompleted) scheduleReminderIfEnabled(task)
+                    _editorState.value = TaskEditorUiState()
+                    _message.value = if (state.isEditing) "Tarefa atualizada." else "Tarefa criada."
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Não foi possível criar a tarefa."
+                    _message.value = it.message ?: "Não foi possível salvar a tarefa."
                 }
         }
     }
@@ -105,6 +149,7 @@ class TasksViewModel @Inject constructor(
             taskRepository.delete(task.id)
                 .onSuccess {
                     reminderScheduler.cancel(task.id)
+                    if (_editorState.value.editingTask?.id == task.id) cancelEditing()
                     _message.value = "Tarefa excluída."
                 }
                 .onFailure { _message.value = it.message ?: "Não foi possível excluir a tarefa." }
