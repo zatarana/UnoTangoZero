@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
@@ -36,7 +37,8 @@ fun MoreRoute(
     onOpenNotes: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenBackup: () -> Unit,
-    onOpenAccounts: () -> Unit
+    onOpenAccounts: () -> Unit,
+    onOpenProjects: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -54,6 +56,7 @@ fun MoreRoute(
             }
         }
 
+        item { MoreCard(Icons.Default.Folder, "Projetos", "Organize tarefas por objetivo e acompanhe progresso.", onOpenProjects) }
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
         item { MoreCard(Icons.Default.CreditCard, "Dívidas", "Controle dívidas, vencimentos e quitações.", onOpenDebts) }
         item { MoreCard(Icons.Default.Repeat, "Hábitos", "Acompanhe hábitos e registre conclusões.", onOpenHabits) }
