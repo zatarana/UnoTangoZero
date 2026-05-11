@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +53,7 @@ import java.time.format.DateTimeFormatter
 fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
     val tasks by viewModel.tasks.collectAsState()
     val taskDurations by viewModel.taskDurations.collectAsState()
+    val taskTags by viewModel.taskTags.collectAsState()
     val editorState by viewModel.editorState.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -69,6 +71,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
         TasksScreen(
             tasks = tasks,
             taskDurations = taskDurations,
+            taskTags = taskTags,
             editorState = editorState,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
@@ -78,6 +81,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
             onRecurrenceTypeChange = viewModel::onRecurrenceTypeChange,
             onEstimatedHoursChange = viewModel::onEstimatedHoursChange,
             onEstimatedMinutesChange = viewModel::onEstimatedMinutesChange,
+            onTagsChange = viewModel::onTagsChange,
             onSaveClick = viewModel::saveTaskFromEditor,
             onCancelEdit = viewModel::cancelEditing,
             onStartEdit = viewModel::startEditing,
@@ -91,6 +95,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
 fun TasksScreen(
     tasks: List<Task>,
     taskDurations: Map<String, Int>,
+    taskTags: Map<String, List<String>>,
     editorState: TaskEditorUiState,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
@@ -100,6 +105,7 @@ fun TasksScreen(
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
+    onTagsChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Task) -> Unit,
@@ -114,7 +120,7 @@ fun TasksScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Crie, edite e acompanhe tarefas com recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Crie, edite e acompanhe tarefas com tags, recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -129,6 +135,7 @@ fun TasksScreen(
                 onRecurrenceTypeChange = onRecurrenceTypeChange,
                 onEstimatedHoursChange = onEstimatedHoursChange,
                 onEstimatedMinutesChange = onEstimatedMinutesChange,
+                onTagsChange = onTagsChange,
                 onSaveClick = onSaveClick,
                 onCancelEdit = onCancelEdit
             )
@@ -141,6 +148,7 @@ fun TasksScreen(
                 TaskCard(
                     task = task,
                     estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
+                    tags = taskTags[task.id].orEmpty(),
                     onStartEdit = onStartEdit,
                     onToggleTask = onToggleTask,
                     onDeleteTask = onDeleteTask
@@ -161,6 +169,7 @@ private fun TaskEditorCard(
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
+    onTagsChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit
 ) {
@@ -170,6 +179,14 @@ private fun TaskEditorCard(
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Título") }, singleLine = true)
             DateSelector(date = state.dueDate, onPrevious = onDueDatePreviousDay, onNext = onDueDateNextDay)
             DurationFields(state = state, onEstimatedHoursChange = onEstimatedHoursChange, onEstimatedMinutesChange = onEstimatedMinutesChange)
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = state.tagsText,
+                onValueChange = onTagsChange,
+                label = { Text("Tags") },
+                placeholder = { Text("Ex: trabalho, casa, estudo") },
+                singleLine = true
+            )
             ChipSelector(title = "Categoria", options = TaskCategory.entries, selected = state.category, label = { it.displayName }, onSelect = onCategoryChange)
             ChipSelector(title = "Prioridade", options = Priority.entries, selected = state.priority, label = { it.displayName }, onSelect = onPriorityChange)
             val recurrenceOptions = listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY)
@@ -191,20 +208,8 @@ private fun DurationFields(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Duração estimada", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                modifier = Modifier.weight(1f),
-                value = state.estimatedHoursText,
-                onValueChange = onEstimatedHoursChange,
-                label = { Text("Horas") },
-                singleLine = true
-            )
-            OutlinedTextField(
-                modifier = Modifier.weight(1f),
-                value = state.estimatedMinutesText,
-                onValueChange = onEstimatedMinutesChange,
-                label = { Text("Minutos") },
-                singleLine = true
-            )
+            OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedHoursText, onValueChange = onEstimatedHoursChange, label = { Text("Horas") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedMinutesText, onValueChange = onEstimatedMinutesChange, label = { Text("Minutos") }, singleLine = true)
         }
     }
 }
@@ -250,6 +255,7 @@ private fun EmptyTasksCard() {
 private fun TaskCard(
     task: Task,
     estimatedDurationMinutes: Int,
+    tags: List<String>,
     onStartEdit: (Task) -> Unit,
     onToggleTask: (Task) -> Unit,
     onDeleteTask: (Task) -> Unit
@@ -259,11 +265,16 @@ private fun TaskCard(
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
             Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
                 Text("${task.category.displayName} • ${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (tags.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) }
+                    }
+                }
             }
             IconButton(onClick = { onStartEdit(task) }) { Icon(Icons.Default.Edit, contentDescription = "Editar tarefa") }
             IconButton(onClick = { onDeleteTask(task) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir tarefa") }
