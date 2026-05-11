@@ -50,7 +50,13 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
+fun TasksRoute(
+    onOpenProjects: () -> Unit,
+    onOpenKanban: () -> Unit,
+    onOpenFocus: () -> Unit,
+    onOpenFocusMode: () -> Unit,
+    viewModel: TasksViewModel = hiltViewModel()
+) {
     val tasks by viewModel.tasks.collectAsState()
     val taskDurations by viewModel.taskDurations.collectAsState()
     val taskTags by viewModel.taskTags.collectAsState()
@@ -75,6 +81,10 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
             taskTags = taskTags,
             selectedTag = selectedTag,
             editorState = editorState,
+            onOpenProjects = onOpenProjects,
+            onOpenKanban = onOpenKanban,
+            onOpenFocus = onOpenFocus,
+            onOpenFocusMode = onOpenFocusMode,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
             onDueDateNextDay = viewModel::onDueDateNextDay,
@@ -101,6 +111,10 @@ fun TasksScreen(
     taskTags: Map<String, List<String>>,
     selectedTag: String?,
     editorState: TaskEditorUiState,
+    onOpenProjects: () -> Unit,
+    onOpenKanban: () -> Unit,
+    onOpenFocus: () -> Unit,
+    onOpenFocusMode: () -> Unit,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
     onDueDateNextDay: () -> Unit,
@@ -132,9 +146,11 @@ fun TasksScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Crie, edite e filtre tarefas por tags, recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Crie a tarefa agora ou abra projetos, Kanban e foco em um toque.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+
+        item { TaskQuickActionsCard(onOpenProjects, onOpenKanban, onOpenFocus, onOpenFocusMode) }
 
         item {
             TaskEditorCard(
@@ -171,6 +187,28 @@ fun TasksScreen(
                     onToggleTask = onToggleTask,
                     onDeleteTask = onDeleteTask
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskQuickActionsCard(
+    onOpenProjects: () -> Unit,
+    onOpenKanban: () -> Unit,
+    onOpenFocus: () -> Unit,
+    onOpenFocusMode: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Ações rápidas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(modifier = Modifier.weight(1f), onClick = onOpenProjects) { Text("Projetos") }
+                Button(modifier = Modifier.weight(1f), onClick = onOpenKanban) { Text("Kanban") }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(modifier = Modifier.weight(1f), onClick = onOpenFocus) { Text("Foco") }
+                Button(modifier = Modifier.weight(1f), onClick = onOpenFocusMode) { Text("Modo Foco") }
             }
         }
     }
