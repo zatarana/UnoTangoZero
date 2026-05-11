@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -33,6 +34,7 @@ import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
+import com.unotangozero.app.presentation.shopping.ShoppingRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -60,6 +62,7 @@ private val destinations = listOf(
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet),
     TangoDestination("Dívidas", Icons.Default.CreditCard),
     TangoDestination("Hábitos", Icons.Default.Repeat),
+    TangoDestination("Compras", Icons.Default.ShoppingCart),
     TangoDestination("Notas", Icons.Default.Notes)
 )
 
@@ -103,7 +106,8 @@ private fun TangoAppRoot() {
                 3 -> FinanceRoute()
                 4 -> DebtsRoute()
                 5 -> HabitsRoute()
-                6 -> NotesRoute()
+                6 -> ShoppingRoute()
+                7 -> NotesRoute()
             }
         }
     }
