@@ -3,14 +3,17 @@ package com.unotangozero.app.presentation.finance
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.domain.enums.ExpenseCategory
+import com.unotangozero.app.domain.models.Budget
+import com.unotangozero.app.domain.models.BudgetStatus
 import com.unotangozero.app.domain.models.Expense
+import com.unotangozero.app.domain.repositories.BudgetRepository
 import com.unotangozero.app.domain.repositories.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -19,25 +22,22 @@ import javax.inject.Inject
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val budgetRepository: BudgetRepository
 ) : ViewModel() {
     private val currentMonth = YearMonth.now()
 
     val expenses: StateFlow<List<Expense>> = expenseRepository
         .observeByMonth(currentMonth)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val budgetStatus: StateFlow<List<BudgetStatus>> = budgetRepository
+        .observeBudgetStatus(currentMonth)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totalMonthInCents: StateFlow<Long> = expenses
-        .combine(MutableStateFlow(Unit)) { expensesList, _ -> expensesList.sumOf { it.amountInCents } }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = 0L
-        )
+        .map { it.sumOf { expense -> expense.amountInCents } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     private val _description = MutableStateFlow("")
     val description: StateFlow<String> = _description.asStateFlow()
@@ -48,20 +48,20 @@ class FinanceViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow(ExpenseCategory.FOOD)
     val selectedCategory: StateFlow<ExpenseCategory> = _selectedCategory.asStateFlow()
 
+    private val _budgetLimitText = MutableStateFlow("")
+    val budgetLimitText: StateFlow<String> = _budgetLimitText.asStateFlow()
+
+    private val _selectedBudgetCategory = MutableStateFlow(ExpenseCategory.FOOD)
+    val selectedBudgetCategory: StateFlow<ExpenseCategory> = _selectedBudgetCategory.asStateFlow()
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onDescriptionChange(value: String) {
-        _description.value = value
-    }
-
-    fun onAmountChange(value: String) {
-        _amountText.value = value.filter { it.isDigit() || it == ',' || it == '.' }
-    }
-
-    fun onCategoryChange(category: ExpenseCategory) {
-        _selectedCategory.value = category
-    }
+    fun onDescriptionChange(value: String) { _description.value = value }
+    fun onAmountChange(value: String) { _amountText.value = value.filterMoneyChars() }
+    fun onCategoryChange(category: ExpenseCategory) { _selectedCategory.value = category }
+    fun onBudgetLimitChange(value: String) { _budgetLimitText.value = value.filterMoneyChars() }
+    fun onBudgetCategoryChange(category: ExpenseCategory) { _selectedBudgetCategory.value = category }
 
     fun createExpense() {
         val description = _description.value.trim()
@@ -71,7 +71,6 @@ class FinanceViewModel @Inject constructor(
             _message.value = "Digite uma descrição para o gasto."
             return
         }
-
         if (amountInCents <= 0L) {
             _message.value = "Digite um valor maior que zero."
             return
@@ -84,16 +83,35 @@ class FinanceViewModel @Inject constructor(
                 description = description,
                 date = LocalDate.now()
             )
-
             expenseRepository.save(expense)
                 .onSuccess {
                     _description.value = ""
                     _amountText.value = ""
                     _message.value = "Gasto registrado."
                 }
-                .onFailure {
-                    _message.value = it.message ?: "Não foi possível registrar o gasto."
+                .onFailure { _message.value = it.message ?: "Não foi possível registrar o gasto." }
+        }
+    }
+
+    fun createBudget() {
+        val limitInCents = parseMoneyToCents(_budgetLimitText.value)
+        if (limitInCents <= 0L) {
+            _message.value = "Digite um limite maior que zero."
+            return
+        }
+
+        viewModelScope.launch {
+            val budget = Budget(
+                yearMonth = currentMonth.toString(),
+                category = _selectedBudgetCategory.value,
+                limitAmountInCents = limitInCents
+            )
+            budgetRepository.save(budget)
+                .onSuccess {
+                    _budgetLimitText.value = ""
+                    _message.value = "Orçamento salvo."
                 }
+                .onFailure { _message.value = it.message ?: "Não foi possível salvar o orçamento." }
         }
     }
 
@@ -105,16 +123,12 @@ class FinanceViewModel @Inject constructor(
         }
     }
 
-    fun clearMessage() {
-        _message.value = null
-    }
+    fun clearMessage() { _message.value = null }
+
+    private fun String.filterMoneyChars(): String = filter { it.isDigit() || it == ',' || it == '.' }
 
     private fun parseMoneyToCents(rawValue: String): Long {
-        val normalized = rawValue
-            .trim()
-            .replace(".", "")
-            .replace(",", ".")
-
+        val normalized = rawValue.trim().replace(".", "").replace(",", ".")
         val amount = normalized.toDoubleOrNull() ?: return 0L
         return kotlin.math.round(amount * 100).toLong()
     }
