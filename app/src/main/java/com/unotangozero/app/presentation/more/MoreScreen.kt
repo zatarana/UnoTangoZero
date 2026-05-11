@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Payments
@@ -48,7 +49,8 @@ fun MoreRoute(
     onOpenKanban: () -> Unit,
     onOpenFocusMode: () -> Unit,
     onOpenMovements: () -> Unit,
-    onOpenBills: () -> Unit
+    onOpenBills: () -> Unit,
+    onOpenGoals: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -73,6 +75,7 @@ fun MoreRoute(
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
         item { MoreCard(Icons.Default.Payments, "Movimentações", "Cadastre receitas, despesas e transferências entre contas.", onOpenMovements) }
         item { MoreCard(Icons.Default.EventNote, "Contas planejadas", "Controle contas a pagar e a receber.", onOpenBills) }
+        item { MoreCard(Icons.Default.Flag, "Metas financeiras", "Acompanhe objetivos de economia e depósitos manuais.", onOpenGoals) }
         item { MoreCard(Icons.Default.CreditCard, "Dívidas", "Controle dívidas, vencimentos e quitações.", onOpenDebts) }
         item { MoreCard(Icons.Default.Repeat, "Hábitos", "Acompanhe hábitos e registre conclusões.", onOpenHabits) }
         item { MoreCard(Icons.Default.ShoppingCart, "Compras", "Crie listas de compras e marque itens comprados.", onOpenShopping) }
