@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -39,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.domain.models.FinancialCategory
+import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.PlannedBill
 import com.unotangozero.app.domain.models.PlannedBillType
 import java.text.NumberFormat
@@ -48,6 +49,7 @@ import java.util.Locale
 @Composable
 fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val form by viewModel.form.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -63,11 +65,13 @@ fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
         SnackbarHost(snackbarHostState)
         BillsScreen(
             uiState = uiState,
+            categories = categories,
             form = form,
             onTypeChange = viewModel::onTypeChange,
             onDescriptionChange = viewModel::onDescriptionChange,
             onAmountChange = viewModel::onAmountChange,
             onCategoryChange = viewModel::onCategoryChange,
+            onCategorySelected = viewModel::onCategorySelected,
             onAccountChange = viewModel::onAccountChange,
             onInstallmentsChange = viewModel::onInstallmentsChange,
             onPreviousDay = viewModel::previousDay,
@@ -82,11 +86,13 @@ fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
 @Composable
 fun BillsScreen(
     uiState: BillsUiState,
+    categories: List<FinancialCategory>,
     form: BillFormState,
     onTypeChange: (PlannedBillType) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onInstallmentsChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
@@ -109,11 +115,13 @@ fun BillsScreen(
         item {
             BillFormCard(
                 accounts = uiState.accounts,
+                categories = categories,
                 form = form,
                 onTypeChange = onTypeChange,
                 onDescriptionChange = onDescriptionChange,
                 onAmountChange = onAmountChange,
                 onCategoryChange = onCategoryChange,
+                onCategorySelected = onCategorySelected,
                 onAccountChange = onAccountChange,
                 onInstallmentsChange = onInstallmentsChange,
                 onPreviousDay = onPreviousDay,
@@ -153,11 +161,13 @@ private fun SummaryCard(uiState: BillsUiState) {
 @Composable
 private fun BillFormCard(
     accounts: List<FinancialAccount>,
+    categories: List<FinancialCategory>,
     form: BillFormState,
     onTypeChange: (PlannedBillType) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onInstallmentsChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
@@ -176,7 +186,13 @@ private fun BillFormCard(
             OutlinedTextField(Modifier.fillMaxWidth(), form.description, onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
             OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
             OutlinedTextField(Modifier.fillMaxWidth(), form.installmentsText, onInstallmentsChange, label = { Text("Quantidade de parcelas") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria") }, singleLine = true)
+            CategoryPicker(
+                value = form.category,
+                expectedType = if (form.type == PlannedBillType.PAYABLE) FinancialCategoryType.EXPENSE else FinancialCategoryType.INCOME,
+                categories = categories,
+                onCategoryChange = onCategoryChange,
+                onCategorySelected = onCategorySelected
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
                 Text("Primeiro vencimento: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
@@ -191,6 +207,31 @@ private fun BillFormCard(
                 }
             }
             Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar") }
+        }
+    }
+}
+
+@Composable
+private fun CategoryPicker(
+    value: String,
+    expectedType: FinancialCategoryType,
+    categories: List<FinancialCategory>,
+    onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit
+) {
+    val filtered = categories.filter { it.type == expectedType }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(Modifier.fillMaxWidth(), value, onCategoryChange, label = { Text("Categoria") }, singleLine = true)
+        if (filtered.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(filtered, key = { it.id }) { category ->
+                    FilterChip(
+                        selected = value == category.displayLabel,
+                        onClick = { onCategorySelected(category) },
+                        label = { Text(category.displayLabel) }
+                    )
+                }
+            }
         }
     }
 }
