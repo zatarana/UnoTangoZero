@@ -24,5 +24,9 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".notifications.TaskReminderReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>
