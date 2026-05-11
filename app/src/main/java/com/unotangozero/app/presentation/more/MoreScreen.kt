@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Notes
@@ -42,7 +43,8 @@ fun MoreRoute(
     onOpenAccounts: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenFocus: () -> Unit,
-    onOpenKanban: () -> Unit
+    onOpenKanban: () -> Unit,
+    onOpenFocusMode: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -61,6 +63,7 @@ fun MoreRoute(
         }
 
         item { MoreCard(Icons.Default.Folder, "Projetos", "Organize tarefas por objetivo e acompanhe progresso.", onOpenProjects) }
+        item { MoreCard(Icons.Default.CenterFocusStrong, "Modo Foco", "Filtre tarefas por período, prioridade e tag.", onOpenFocusMode) }
         item { MoreCard(Icons.Default.ViewKanban, "Kanban", "Visualize tarefas por estágio e mova entre colunas.", onOpenKanban) }
         item { MoreCard(Icons.Default.Timer, "Foco", "Use Pomodoro, ciclos e registre esforço.", onOpenFocus) }
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
