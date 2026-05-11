@@ -34,6 +34,16 @@ data class CategoryTotalUiState(
     val percentage: Double
 )
 
+data class ExpenseEditorUiState(
+    val editingExpense: Expense? = null,
+    val description: String = "",
+    val amountText: String = "",
+    val category: ExpenseCategory = ExpenseCategory.FOOD,
+    val date: LocalDate = LocalDate.now()
+) {
+    val isEditing: Boolean = editingExpense != null
+}
+
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
@@ -78,14 +88,8 @@ class FinanceViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FinanceReportUiState())
 
-    private val _description = MutableStateFlow("")
-    val description: StateFlow<String> = _description.asStateFlow()
-
-    private val _amountText = MutableStateFlow("")
-    val amountText: StateFlow<String> = _amountText.asStateFlow()
-
-    private val _selectedCategory = MutableStateFlow(ExpenseCategory.FOOD)
-    val selectedCategory: StateFlow<ExpenseCategory> = _selectedCategory.asStateFlow()
+    private val _expenseEditorState = MutableStateFlow(ExpenseEditorUiState())
+    val expenseEditorState: StateFlow<ExpenseEditorUiState> = _expenseEditorState.asStateFlow()
 
     private val _budgetLimitText = MutableStateFlow("")
     val budgetLimitText: StateFlow<String> = _budgetLimitText.asStateFlow()
@@ -96,15 +100,47 @@ class FinanceViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onDescriptionChange(value: String) { _description.value = value }
-    fun onAmountChange(value: String) { _amountText.value = value.filterMoneyChars() }
-    fun onCategoryChange(category: ExpenseCategory) { _selectedCategory.value = category }
+    fun onExpenseDescriptionChange(value: String) {
+        _expenseEditorState.value = _expenseEditorState.value.copy(description = value)
+    }
+
+    fun onExpenseAmountChange(value: String) {
+        _expenseEditorState.value = _expenseEditorState.value.copy(amountText = value.filterMoneyChars())
+    }
+
+    fun onExpenseCategoryChange(category: ExpenseCategory) {
+        _expenseEditorState.value = _expenseEditorState.value.copy(category = category)
+    }
+
+    fun onExpenseDatePreviousDay() {
+        _expenseEditorState.value = _expenseEditorState.value.copy(date = _expenseEditorState.value.date.minusDays(1))
+    }
+
+    fun onExpenseDateNextDay() {
+        _expenseEditorState.value = _expenseEditorState.value.copy(date = _expenseEditorState.value.date.plusDays(1))
+    }
+
+    fun startEditingExpense(expense: Expense) {
+        _expenseEditorState.value = ExpenseEditorUiState(
+            editingExpense = expense,
+            description = expense.description,
+            amountText = centsToMoneyText(expense.amountInCents),
+            category = expense.category,
+            date = expense.date
+        )
+    }
+
+    fun cancelExpenseEditing() {
+        _expenseEditorState.value = ExpenseEditorUiState()
+    }
+
     fun onBudgetLimitChange(value: String) { _budgetLimitText.value = value.filterMoneyChars() }
     fun onBudgetCategoryChange(category: ExpenseCategory) { _selectedBudgetCategory.value = category }
 
-    fun createExpense() {
-        val description = _description.value.trim()
-        val amountInCents = parseMoneyToCents(_amountText.value)
+    fun saveExpenseFromEditor() {
+        val state = _expenseEditorState.value
+        val description = state.description.trim()
+        val amountInCents = parseMoneyToCents(state.amountText)
 
         if (description.isBlank()) {
             _message.value = "Digite uma descrição para o gasto."
@@ -116,19 +152,24 @@ class FinanceViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val expense = Expense(
+            val expense = state.editingExpense?.copy(
                 amountInCents = amountInCents,
-                category = _selectedCategory.value,
+                category = state.category,
                 description = description,
-                date = LocalDate.now()
+                date = state.date
+            ) ?: Expense(
+                amountInCents = amountInCents,
+                category = state.category,
+                description = description,
+                date = state.date
             )
+
             expenseRepository.save(expense)
                 .onSuccess {
-                    _description.value = ""
-                    _amountText.value = ""
-                    _message.value = "Gasto registrado."
+                    _expenseEditorState.value = ExpenseEditorUiState()
+                    _message.value = if (state.isEditing) "Gasto atualizado." else "Gasto registrado."
                 }
-                .onFailure { _message.value = it.message ?: "Não foi possível registrar o gasto." }
+                .onFailure { _message.value = it.message ?: "Não foi possível salvar o gasto." }
         }
     }
 
@@ -157,7 +198,10 @@ class FinanceViewModel @Inject constructor(
     fun deleteExpense(expense: Expense) {
         viewModelScope.launch {
             expenseRepository.delete(expense.id)
-                .onSuccess { _message.value = "Gasto excluído." }
+                .onSuccess {
+                    if (_expenseEditorState.value.editingExpense?.id == expense.id) cancelExpenseEditing()
+                    _message.value = "Gasto excluído."
+                }
                 .onFailure { _message.value = it.message ?: "Não foi possível excluir o gasto." }
         }
     }
@@ -170,5 +214,9 @@ class FinanceViewModel @Inject constructor(
         val normalized = rawValue.trim().replace(".", "").replace(",", ".")
         val amount = normalized.toDoubleOrNull() ?: return 0L
         return kotlin.math.round(amount * 100).toLong()
+    }
+
+    private fun centsToMoneyText(amountInCents: Long): String {
+        return "%.2f".format(amountInCents / 100.0).replace('.', ',')
     }
 }
