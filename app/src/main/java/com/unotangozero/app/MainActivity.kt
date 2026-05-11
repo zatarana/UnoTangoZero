@@ -70,8 +70,9 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
+private enum class TaskDestination { MAIN, PROJECTS, FOCUS_MODE, KANBAN, FOCUS }
 private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS }
-private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP, PROJECTS, FOCUS_MODE, KANBAN, FOCUS }
+private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -91,6 +92,7 @@ private fun TangoAppRoot() {
     RequestNotificationPermissionOnce()
 
     var selectedIndex by remember { mutableIntStateOf(0) }
+    var taskDestination by remember { mutableStateOf(TaskDestination.MAIN) }
     var financeDestination by remember { mutableStateOf(FinanceDestination.DASHBOARD) }
     var extraDestination by remember { mutableStateOf(ExtraDestination.MORE) }
 
@@ -102,6 +104,7 @@ private fun TangoAppRoot() {
                         selected = selectedIndex == index,
                         onClick = {
                             selectedIndex = index
+                            if (index == 1) taskDestination = TaskDestination.MAIN
                             if (index == 3) financeDestination = FinanceDestination.DASHBOARD
                             if (index == 4) extraDestination = ExtraDestination.MORE
                         },
@@ -115,7 +118,18 @@ private fun TangoAppRoot() {
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (selectedIndex) {
                 0 -> DashboardRoute()
-                1 -> TasksRoute()
+                1 -> when (taskDestination) {
+                    TaskDestination.MAIN -> TasksRoute(
+                        onOpenProjects = { taskDestination = TaskDestination.PROJECTS },
+                        onOpenKanban = { taskDestination = TaskDestination.KANBAN },
+                        onOpenFocus = { taskDestination = TaskDestination.FOCUS },
+                        onOpenFocusMode = { taskDestination = TaskDestination.FOCUS_MODE }
+                    )
+                    TaskDestination.PROJECTS -> ProjectsRoute()
+                    TaskDestination.FOCUS_MODE -> FocusModeRoute()
+                    TaskDestination.KANBAN -> KanbanRoute()
+                    TaskDestination.FOCUS -> FocusRoute()
+                }
                 2 -> AgendaRoute()
                 3 -> when (financeDestination) {
                     FinanceDestination.DASHBOARD -> FinanceRoute(
@@ -146,16 +160,8 @@ private fun TangoAppRoot() {
                         onOpenShopping = { extraDestination = ExtraDestination.SHOPPING },
                         onOpenNotes = { extraDestination = ExtraDestination.NOTES },
                         onOpenSettings = { extraDestination = ExtraDestination.SETTINGS },
-                        onOpenBackup = { extraDestination = ExtraDestination.BACKUP },
-                        onOpenProjects = { extraDestination = ExtraDestination.PROJECTS },
-                        onOpenFocus = { extraDestination = ExtraDestination.FOCUS },
-                        onOpenKanban = { extraDestination = ExtraDestination.KANBAN },
-                        onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE }
+                        onOpenBackup = { extraDestination = ExtraDestination.BACKUP }
                     )
-                    ExtraDestination.PROJECTS -> ProjectsRoute()
-                    ExtraDestination.FOCUS_MODE -> FocusModeRoute()
-                    ExtraDestination.KANBAN -> KanbanRoute()
-                    ExtraDestination.FOCUS -> FocusRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
                     ExtraDestination.HABITS -> HabitsRoute()
                     ExtraDestination.SHOPPING -> ShoppingRoute()
