@@ -3,6 +3,7 @@ package com.unotangozero.app.presentation.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.settings.AppSettingsRepository
+import com.unotangozero.app.data.tasks.TaskDurationRepository
 import com.unotangozero.app.domain.enums.Priority
 import com.unotangozero.app.domain.enums.RecurrenceType
 import com.unotangozero.app.domain.enums.TaskCategory
@@ -27,7 +28,9 @@ data class TaskEditorUiState(
     val dueDate: LocalDate = LocalDate.now(),
     val category: TaskCategory = TaskCategory.PERSONAL,
     val priority: Priority = Priority.MEDIUM,
-    val recurrenceType: RecurrenceType = RecurrenceType.NONE
+    val recurrenceType: RecurrenceType = RecurrenceType.NONE,
+    val estimatedHoursText: String = "",
+    val estimatedMinutesText: String = ""
 ) {
     val isEditing: Boolean = editingTask != null
 }
@@ -36,11 +39,15 @@ data class TaskEditorUiState(
 class TasksViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val settingsRepository: AppSettingsRepository,
-    private val reminderScheduler: TaskReminderScheduler
+    private val reminderScheduler: TaskReminderScheduler,
+    private val taskDurationRepository: TaskDurationRepository
 ) : ViewModel() {
     val tasks: StateFlow<List<Task>> = taskRepository
         .observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val taskDurations: StateFlow<Map<String, Int>> = taskDurationRepository.durations
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _editorState = MutableStateFlow(TaskEditorUiState())
     val editorState: StateFlow<TaskEditorUiState> = _editorState.asStateFlow()
@@ -48,44 +55,36 @@ class TasksViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onTitleChange(value: String) {
-        _editorState.value = _editorState.value.copy(title = value)
+    fun onTitleChange(value: String) { _editorState.value = _editorState.value.copy(title = value) }
+    fun onDueDatePreviousDay() { _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.minusDays(1)) }
+    fun onDueDateNextDay() { _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.plusDays(1)) }
+    fun onCategoryChange(category: TaskCategory) { _editorState.value = _editorState.value.copy(category = category) }
+    fun onPriorityChange(priority: Priority) { _editorState.value = _editorState.value.copy(priority = priority) }
+    fun onRecurrenceTypeChange(value: RecurrenceType) { _editorState.value = _editorState.value.copy(recurrenceType = value) }
+
+    fun onEstimatedHoursChange(value: String) {
+        _editorState.value = _editorState.value.copy(estimatedHoursText = value.filter { it.isDigit() }.take(3))
     }
 
-    fun onDueDatePreviousDay() {
-        _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.minusDays(1))
-    }
-
-    fun onDueDateNextDay() {
-        _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.plusDays(1))
-    }
-
-    fun onCategoryChange(category: TaskCategory) {
-        _editorState.value = _editorState.value.copy(category = category)
-    }
-
-    fun onPriorityChange(priority: Priority) {
-        _editorState.value = _editorState.value.copy(priority = priority)
-    }
-
-    fun onRecurrenceTypeChange(value: RecurrenceType) {
-        _editorState.value = _editorState.value.copy(recurrenceType = value)
+    fun onEstimatedMinutesChange(value: String) {
+        _editorState.value = _editorState.value.copy(estimatedMinutesText = value.filter { it.isDigit() }.take(2))
     }
 
     fun startEditing(task: Task) {
+        val duration = taskDurations.value[task.id] ?: task.estimatedDurationMinutes
         _editorState.value = TaskEditorUiState(
             editingTask = task,
             title = task.title,
             dueDate = task.dueDate,
             category = task.category,
             priority = task.priority,
-            recurrenceType = task.recurrenceType ?: RecurrenceType.NONE
+            recurrenceType = task.recurrenceType ?: RecurrenceType.NONE,
+            estimatedHoursText = if (duration > 0) (duration / 60).toString() else "",
+            estimatedMinutesText = if (duration > 0) (duration % 60).toString() else ""
         )
     }
 
-    fun cancelEditing() {
-        _editorState.value = TaskEditorUiState()
-    }
+    fun cancelEditing() { _editorState.value = TaskEditorUiState() }
 
     fun saveTaskFromEditor() {
         val state = _editorState.value
@@ -94,6 +93,8 @@ class TasksViewModel @Inject constructor(
             _message.value = "Digite um título para a tarefa."
             return
         }
+
+        val estimatedMinutes = parseEstimatedMinutes(state)
 
         viewModelScope.launch {
             val recurrenceType = state.recurrenceType
@@ -104,6 +105,7 @@ class TasksViewModel @Inject constructor(
                 priority = state.priority,
                 isRecurring = recurrenceType != RecurrenceType.NONE,
                 recurrenceType = recurrenceType.takeIf { it != RecurrenceType.NONE },
+                estimatedDurationMinutes = estimatedMinutes,
                 updatedAt = LocalDateTime.now()
             ) ?: Task(
                 title = title,
@@ -111,19 +113,19 @@ class TasksViewModel @Inject constructor(
                 category = state.category,
                 priority = state.priority,
                 isRecurring = recurrenceType != RecurrenceType.NONE,
-                recurrenceType = recurrenceType.takeIf { it != RecurrenceType.NONE }
+                recurrenceType = recurrenceType.takeIf { it != RecurrenceType.NONE },
+                estimatedDurationMinutes = estimatedMinutes
             )
 
             taskRepository.save(task)
                 .onSuccess {
+                    taskDurationRepository.setDuration(task.id, estimatedMinutes)
                     reminderScheduler.cancel(task.id)
                     if (!task.isCompleted) scheduleReminderIfEnabled(task)
                     _editorState.value = TaskEditorUiState()
                     _message.value = if (state.isEditing) "Tarefa atualizada." else "Tarefa criada."
                 }
-                .onFailure {
-                    _message.value = it.message ?: "Não foi possível salvar a tarefa."
-                }
+                .onFailure { _message.value = it.message ?: "Não foi possível salvar a tarefa." }
         }
     }
 
@@ -148,6 +150,7 @@ class TasksViewModel @Inject constructor(
         viewModelScope.launch {
             taskRepository.delete(task.id)
                 .onSuccess {
+                    taskDurationRepository.setDuration(task.id, 0)
                     reminderScheduler.cancel(task.id)
                     if (_editorState.value.editingTask?.id == task.id) cancelEditing()
                     _message.value = "Tarefa excluída."
@@ -156,8 +159,12 @@ class TasksViewModel @Inject constructor(
         }
     }
 
-    fun clearMessage() {
-        _message.value = null
+    fun clearMessage() { _message.value = null }
+
+    private fun parseEstimatedMinutes(state: TaskEditorUiState): Int {
+        val hours = state.estimatedHoursText.toIntOrNull() ?: 0
+        val minutes = (state.estimatedMinutesText.toIntOrNull() ?: 0).coerceIn(0, 59)
+        return (hours * 60 + minutes).coerceAtLeast(0)
     }
 
     private suspend fun scheduleReminderIfEnabled(task: Task) {
@@ -179,10 +186,12 @@ class TasksViewModel @Inject constructor(
         val endDate = task.recurrenceEndDate
         if (endDate != null && nextDate.isAfter(endDate)) return
 
+        val duration = taskDurations.value[task.id] ?: task.estimatedDurationMinutes
         val nextTask = task.copy(
             id = java.util.UUID.randomUUID().toString(),
             dueDate = nextDate,
             isCompleted = false,
+            estimatedDurationMinutes = duration,
             createdAt = LocalDateTime.now(),
             updatedAt = LocalDateTime.now(),
             subtasks = emptyList(),
@@ -190,6 +199,7 @@ class TasksViewModel @Inject constructor(
         )
 
         taskRepository.save(nextTask).onSuccess {
+            taskDurationRepository.setDuration(nextTask.id, duration)
             scheduleReminderIfEnabled(nextTask)
             _message.value = "Tarefa concluída. Próxima recorrência criada."
         }
