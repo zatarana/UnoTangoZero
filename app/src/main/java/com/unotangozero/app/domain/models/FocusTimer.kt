@@ -19,7 +19,16 @@ data class FocusSessionLog(
     val profileName: String,
     val focusedMinutes: Int,
     val completedCycles: Int,
+    val projectId: String? = null,
+    val projectTitle: String? = null,
     val createdAt: LocalDateTime = LocalDateTime.now()
+)
+
+data class FocusProjectSummary(
+    val projectId: String?,
+    val projectTitle: String,
+    val totalMinutes: Int,
+    val sessionCount: Int
 )
 
 enum class FocusPhase(val displayName: String) {
