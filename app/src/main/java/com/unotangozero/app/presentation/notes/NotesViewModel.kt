@@ -13,7 +13,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
+
+data class NoteEditorUiState(
+    val editingNote: Note? = null,
+    val title: String = "",
+    val content: String = ""
+) {
+    val isEditing: Boolean = editingNote != null
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -37,11 +46,8 @@ class NotesViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
-    private val _title = MutableStateFlow("")
-    val title: StateFlow<String> = _title.asStateFlow()
-
-    private val _content = MutableStateFlow("")
-    val content: StateFlow<String> = _content.asStateFlow()
+    private val _editorState = MutableStateFlow(NoteEditorUiState())
+    val editorState: StateFlow<NoteEditorUiState> = _editorState.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -51,16 +57,29 @@ class NotesViewModel @Inject constructor(
     }
 
     fun onTitleChange(value: String) {
-        _title.value = value
+        _editorState.value = _editorState.value.copy(title = value)
     }
 
     fun onContentChange(value: String) {
-        _content.value = value
+        _editorState.value = _editorState.value.copy(content = value)
     }
 
-    fun createNote() {
-        val title = _title.value.trim()
-        val content = _content.value.trim()
+    fun startEditing(note: Note) {
+        _editorState.value = NoteEditorUiState(
+            editingNote = note,
+            title = note.title,
+            content = note.content
+        )
+    }
+
+    fun cancelEditing() {
+        _editorState.value = NoteEditorUiState()
+    }
+
+    fun saveNoteFromEditor() {
+        val state = _editorState.value
+        val title = state.title.trim()
+        val content = state.content.trim()
 
         if (title.isBlank()) {
             _message.value = "Digite um título para a nota."
@@ -73,19 +92,22 @@ class NotesViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val note = Note(
+            val note = state.editingNote?.copy(
+                title = title,
+                content = content,
+                updatedAt = LocalDateTime.now()
+            ) ?: Note(
                 title = title,
                 content = content
             )
 
             noteRepository.save(note)
                 .onSuccess {
-                    _title.value = ""
-                    _content.value = ""
-                    _message.value = "Nota criada."
+                    _editorState.value = NoteEditorUiState()
+                    _message.value = if (state.isEditing) "Nota atualizada." else "Nota criada."
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Não foi possível criar a nota."
+                    _message.value = it.message ?: "Não foi possível salvar a nota."
                 }
         }
     }
@@ -102,7 +124,10 @@ class NotesViewModel @Inject constructor(
     fun deleteNote(note: Note) {
         viewModelScope.launch {
             noteRepository.delete(note.id)
-                .onSuccess { _message.value = "Nota excluída." }
+                .onSuccess {
+                    if (_editorState.value.editingNote?.id == note.id) cancelEditing()
+                    _message.value = "Nota excluída."
+                }
                 .onFailure { _message.value = it.message ?: "Não foi possível excluir a nota." }
         }
     }
