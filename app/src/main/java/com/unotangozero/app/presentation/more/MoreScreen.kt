@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Flag
@@ -57,7 +58,8 @@ fun MoreRoute(
     onOpenBudget: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
-    onOpenReconciliation: () -> Unit
+    onOpenReconciliation: () -> Unit,
+    onOpenCategories: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -80,6 +82,7 @@ fun MoreRoute(
         item { MoreCard(Icons.Default.ViewKanban, "Kanban", "Visualize tarefas por estágio e mova entre colunas.", onOpenKanban) }
         item { MoreCard(Icons.Default.Timer, "Foco", "Use Pomodoro, ciclos e registre esforço.", onOpenFocus) }
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
+        item { MoreCard(Icons.Default.Category, "Categorias financeiras", "Crie categorias e subcategorias de receitas e despesas.", onOpenCategories) }
         item { MoreCard(Icons.Default.Payments, "Movimentações", "Cadastre receitas, despesas e transferências entre contas.", onOpenMovements) }
         item { MoreCard(Icons.Default.Sync, "Reconciliação", "Ajuste o saldo do app para bater com o saldo real.", onOpenReconciliation) }
         item { MoreCard(Icons.Default.PieChart, "Orçamento", "Distribua receitas em envelopes mensais por categoria.", onOpenBudget) }
