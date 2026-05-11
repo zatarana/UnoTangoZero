@@ -54,7 +54,8 @@ fun MoreRoute(
     onOpenBills: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenBudget: () -> Unit,
-    onOpenReports: () -> Unit
+    onOpenReports: () -> Unit,
+    onOpenProjection: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -80,6 +81,7 @@ fun MoreRoute(
         item { MoreCard(Icons.Default.Payments, "Movimentações", "Cadastre receitas, despesas e transferências entre contas.", onOpenMovements) }
         item { MoreCard(Icons.Default.PieChart, "Orçamento", "Distribua receitas em envelopes mensais por categoria.", onOpenBudget) }
         item { MoreCard(Icons.Default.BarChart, "Relatórios financeiros", "Veja receitas, despesas e categorias por mês.", onOpenReports) }
+        item { MoreCard(Icons.Default.BarChart, "Projeção de saldo", "Veja saldo projetado para 30, 60 e 90 dias.", onOpenProjection) }
         item { MoreCard(Icons.Default.EventNote, "Contas planejadas", "Controle contas a pagar e a receber.", onOpenBills) }
         item { MoreCard(Icons.Default.Flag, "Metas financeiras", "Acompanhe objetivos de economia e depósitos manuais.", onOpenGoals) }
         item { MoreCard(Icons.Default.CreditCard, "Dívidas", "Controle dívidas, vencimentos e quitações.", onOpenDebts) }
