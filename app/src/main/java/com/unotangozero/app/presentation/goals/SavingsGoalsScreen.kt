@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -149,9 +148,9 @@ private fun GoalFormCard(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Nova meta", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.name, onNameChange, label = { Text("Nome") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.targetAmountText, onTargetAmountChange, label = { Text("Valor alvo") }, prefix = { Text("R$ ") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria opcional") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.name, onValueChange = onNameChange, label = { Text("Nome") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.targetAmountText, onValueChange = onTargetAmountChange, label = { Text("Valor alvo") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.category, onValueChange = onCategoryChange, label = { Text("Categoria opcional") }, singleLine = true)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = form.hasTargetDate, onCheckedChange = onHasTargetDateChange)
                 Text("Usar data desejada")
@@ -163,7 +162,7 @@ private fun GoalFormCard(
                     IconButton(onClick = onNextTargetDate) { Icon(Icons.Default.ChevronRight, null) }
                 }
             }
-            Button(Modifier.fillMaxWidth(), onClick = onSaveGoal) { Text("Criar meta") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveGoal) { Text("Criar meta") }
         }
     }
 }
@@ -194,9 +193,9 @@ private fun GoalCard(
                 Text("Data desejada: ${it.format(formatter)} • ${monthlyNeeded(goal)} por mês")
             }
             if (!goal.isCompleted) {
-                OutlinedTextField(Modifier.fillMaxWidth(), form.depositAmountText, onDepositAmountChange, label = { Text("Depósito") }, prefix = { Text("R$ ") }, singleLine = true)
-                OutlinedTextField(Modifier.fillMaxWidth(), form.depositNote, onDepositNoteChange, label = { Text("Observação") }, singleLine = true)
-                Button(Modifier.fillMaxWidth(), onClick = { onAddDeposit(goal) }) { Text("Registrar depósito") }
+                OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositAmountText, onValueChange = onDepositAmountChange, label = { Text("Depósito") }, prefix = { Text("R$ ") }, singleLine = true)
+                OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositNote, onValueChange = onDepositNoteChange, label = { Text("Observação") }, singleLine = true)
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { onAddDeposit(goal) }) { Text("Registrar depósito") }
             } else {
                 Text("Meta concluída", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
