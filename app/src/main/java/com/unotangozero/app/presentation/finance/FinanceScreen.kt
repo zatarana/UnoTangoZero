@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -23,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,6 +45,7 @@ import com.unotangozero.app.domain.enums.ExpenseCategory
 import com.unotangozero.app.domain.models.BudgetStatus
 import com.unotangozero.app.domain.models.Expense
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -50,9 +55,7 @@ fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
     val budgetStatus by viewModel.budgetStatus.collectAsState()
     val report by viewModel.report.collectAsState()
     val totalMonthInCents by viewModel.totalMonthInCents.collectAsState()
-    val description by viewModel.description.collectAsState()
-    val amountText by viewModel.amountText.collectAsState()
-    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val expenseEditorState by viewModel.expenseEditorState.collectAsState()
     val budgetLimitText by viewModel.budgetLimitText.collectAsState()
     val selectedBudgetCategory by viewModel.selectedBudgetCategory.collectAsState()
     val message by viewModel.message.collectAsState()
@@ -73,17 +76,19 @@ fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
             budgetStatus = budgetStatus,
             report = report,
             totalMonthInCents = totalMonthInCents,
-            description = description,
-            amountText = amountText,
-            selectedCategory = selectedCategory,
+            expenseEditorState = expenseEditorState,
             budgetLimitText = budgetLimitText,
             selectedBudgetCategory = selectedBudgetCategory,
-            onDescriptionChange = viewModel::onDescriptionChange,
-            onAmountChange = viewModel::onAmountChange,
-            onCategoryChange = viewModel::onCategoryChange,
+            onExpenseDescriptionChange = viewModel::onExpenseDescriptionChange,
+            onExpenseAmountChange = viewModel::onExpenseAmountChange,
+            onExpenseCategoryChange = viewModel::onExpenseCategoryChange,
+            onExpenseDatePreviousDay = viewModel::onExpenseDatePreviousDay,
+            onExpenseDateNextDay = viewModel::onExpenseDateNextDay,
+            onSaveExpense = viewModel::saveExpenseFromEditor,
+            onCancelExpenseEdit = viewModel::cancelExpenseEditing,
+            onStartEditExpense = viewModel::startEditingExpense,
             onBudgetLimitChange = viewModel::onBudgetLimitChange,
             onBudgetCategoryChange = viewModel::onBudgetCategoryChange,
-            onCreateExpense = viewModel::createExpense,
             onCreateBudget = viewModel::createBudget,
             onDeleteExpense = viewModel::deleteExpense
         )
@@ -96,17 +101,19 @@ fun FinanceScreen(
     budgetStatus: List<BudgetStatus>,
     report: FinanceReportUiState,
     totalMonthInCents: Long,
-    description: String,
-    amountText: String,
-    selectedCategory: ExpenseCategory,
+    expenseEditorState: ExpenseEditorUiState,
     budgetLimitText: String,
     selectedBudgetCategory: ExpenseCategory,
-    onDescriptionChange: (String) -> Unit,
-    onAmountChange: (String) -> Unit,
-    onCategoryChange: (ExpenseCategory) -> Unit,
+    onExpenseDescriptionChange: (String) -> Unit,
+    onExpenseAmountChange: (String) -> Unit,
+    onExpenseCategoryChange: (ExpenseCategory) -> Unit,
+    onExpenseDatePreviousDay: () -> Unit,
+    onExpenseDateNextDay: () -> Unit,
+    onSaveExpense: () -> Unit,
+    onCancelExpenseEdit: () -> Unit,
+    onStartEditExpense: (Expense) -> Unit,
     onBudgetLimitChange: (String) -> Unit,
     onBudgetCategoryChange: (ExpenseCategory) -> Unit,
-    onCreateExpense: () -> Unit,
     onCreateBudget: () -> Unit,
     onDeleteExpense: (Expense) -> Unit
 ) {
@@ -118,7 +125,7 @@ fun FinanceScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Registre gastos, defina orçamentos e acompanhe seu relatório mensal.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Registre, edite e acompanhe seus gastos e orçamentos.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -135,26 +142,24 @@ fun FinanceScreen(
 
         if (report.categoryTotals.isNotEmpty()) {
             item { SectionTitle("Relatório por categoria") }
-            items(report.categoryTotals, key = { it.category.name }) { item ->
-                CategoryReportCard(item)
-            }
+            items(report.categoryTotals, key = { it.category.name }) { item -> CategoryReportCard(item) }
         }
 
-        item { SectionTitle("Novo gasto") }
-
+        item { SectionTitle(if (expenseEditorState.isEditing) "Editar gasto" else "Novo gasto") }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = amountText, onValueChange = onAmountChange, label = { Text("Valor") }, singleLine = true, prefix = { Text("R$ ") })
-                    CategoryChips(selectedCategory = selectedCategory, onCategoryChange = onCategoryChange)
-                    Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateExpense) { Text("Registrar gasto") }
-                }
-            }
+            ExpenseEditorCard(
+                state = expenseEditorState,
+                onDescriptionChange = onExpenseDescriptionChange,
+                onAmountChange = onExpenseAmountChange,
+                onCategoryChange = onExpenseCategoryChange,
+                onDatePreviousDay = onExpenseDatePreviousDay,
+                onDateNextDay = onExpenseDateNextDay,
+                onSaveExpense = onSaveExpense,
+                onCancelEdit = onCancelExpenseEdit
+            )
         }
 
         item { SectionTitle("Orçamento mensal") }
-
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -167,19 +172,56 @@ fun FinanceScreen(
 
         if (budgetStatus.isNotEmpty()) {
             item { SectionTitle("Status dos orçamentos") }
-            items(items = budgetStatus, key = { it.category.name }) { status ->
-                BudgetStatusCard(status = status)
-            }
+            items(items = budgetStatus, key = { it.category.name }) { status -> BudgetStatusCard(status = status) }
         }
 
         item { SectionTitle("Gastos do mês") }
-
         if (expenses.isEmpty()) {
             item { EmptyExpensesCard() }
         } else {
             items(items = expenses, key = { it.id }) { expense ->
-                ExpenseCard(expense = expense, onDeleteExpense = onDeleteExpense)
+                ExpenseCard(expense = expense, onStartEditExpense = onStartEditExpense, onDeleteExpense = onDeleteExpense)
             }
+        }
+    }
+}
+
+@Composable
+private fun ExpenseEditorCard(
+    state: ExpenseEditorUiState,
+    onDescriptionChange: (String) -> Unit,
+    onAmountChange: (String) -> Unit,
+    onCategoryChange: (ExpenseCategory) -> Unit,
+    onDatePreviousDay: () -> Unit,
+    onDateNextDay: () -> Unit,
+    onSaveExpense: () -> Unit,
+    onCancelEdit: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, singleLine = true, prefix = { Text("R$ ") })
+            DateSelector(date = state.date, onPrevious = onDatePreviousDay, onNext = onDateNextDay)
+            CategoryChips(selectedCategory = state.category, onCategoryChange = onCategoryChange)
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveExpense) { Text(if (state.isEditing) "Salvar alterações" else "Registrar gasto") }
+            if (state.isEditing) {
+                OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar edição") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateSelector(date: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit) {
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Data", style = MaterialTheme.typography.labelMedium)
+                Text(date.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
         }
     }
 }
@@ -245,7 +287,7 @@ private fun EmptyExpensesCard() {
 }
 
 @Composable
-private fun ExpenseCard(expense: Expense, onDeleteExpense: (Expense) -> Unit) {
+private fun ExpenseCard(expense: Expense, onStartEditExpense: (Expense) -> Unit, onDeleteExpense: (Expense) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -258,6 +300,7 @@ private fun ExpenseCard(expense: Expense, onDeleteExpense: (Expense) -> Unit) {
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(formatMoney(expense.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = { onStartEditExpense(expense) }) { Icon(Icons.Default.Edit, contentDescription = "Editar gasto") }
             IconButton(onClick = { onDeleteExpense(expense) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir gasto") }
         }
     }
