@@ -121,9 +121,9 @@ private fun CategoryFormCard(
                     FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
                 }
             }
-            OutlinedTextField(Modifier.fillMaxWidth(), form.name, onNameChange, label = { Text("Nome") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.parentName, onParentNameChange, label = { Text("Categoria mãe opcional") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
-            Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar categoria") }
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.name, onValueChange = onNameChange, label = { Text("Nome") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.parentName, onValueChange = onParentNameChange, label = { Text("Categoria mãe opcional") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar categoria") }
         }
     }
 }
