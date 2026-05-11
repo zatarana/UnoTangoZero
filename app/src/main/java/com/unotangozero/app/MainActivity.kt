@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
+import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -95,7 +96,7 @@ private fun TangoAppRoot() {
                 0 -> DashboardRoute()
                 1 -> TasksRoute()
                 2 -> PlaceholderScreen("Agenda", "Aqui ficará a visualização diária, semanal e lista de compromissos.")
-                3 -> PlaceholderScreen("Finanças", "Aqui ficarão despesas, orçamentos, dívidas e relatórios.")
+                3 -> FinanceRoute()
                 4 -> PlaceholderScreen("Notas", "Aqui ficarão notas, tags, fixação e busca local.")
             }
         }
