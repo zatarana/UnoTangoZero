@@ -7,7 +7,8 @@ import java.util.UUID
 enum class FinancialMovementType(val displayName: String) {
     INCOME("Receita"),
     EXPENSE("Despesa"),
-    TRANSFER("Transferência")
+    TRANSFER("Transferência"),
+    ADJUSTMENT("Ajuste de saldo")
 }
 
 data class FinancialMovement(
