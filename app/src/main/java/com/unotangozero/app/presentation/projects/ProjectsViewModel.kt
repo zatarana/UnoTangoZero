@@ -24,6 +24,9 @@ class ProjectsViewModel @Inject constructor(
     private val _selectedProjectId = MutableStateFlow<String?>(null)
     val selectedProjectId: StateFlow<String?> = _selectedProjectId.asStateFlow()
 
+    private val _selectedSectionId = MutableStateFlow<String?>(null)
+    val selectedSectionId: StateFlow<String?> = _selectedSectionId.asStateFlow()
+
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title.asStateFlow()
 
@@ -33,6 +36,9 @@ class ProjectsViewModel @Inject constructor(
     private val _deadline = MutableStateFlow<LocalDate?>(null)
     val deadline: StateFlow<LocalDate?> = _deadline.asStateFlow()
 
+    private val _sectionTitle = MutableStateFlow("")
+    val sectionTitle: StateFlow<String> = _sectionTitle.asStateFlow()
+
     private val _taskTitle = MutableStateFlow("")
     val taskTitle: StateFlow<String> = _taskTitle.asStateFlow()
 
@@ -41,23 +47,19 @@ class ProjectsViewModel @Inject constructor(
 
     fun onTitleChange(value: String) { _title.value = value }
     fun onDescriptionChange(value: String) { _description.value = value }
+    fun onSectionTitleChange(value: String) { _sectionTitle.value = value }
     fun onTaskTitleChange(value: String) { _taskTitle.value = value }
 
-    fun previousDeadlineDay() {
-        _deadline.value = (_deadline.value ?: LocalDate.now()).minusDays(1)
-    }
-
-    fun nextDeadlineDay() {
-        _deadline.value = (_deadline.value ?: LocalDate.now()).plusDays(1)
-    }
-
-    fun clearDeadline() {
-        _deadline.value = null
-    }
+    fun previousDeadlineDay() { _deadline.value = (_deadline.value ?: LocalDate.now()).minusDays(1) }
+    fun nextDeadlineDay() { _deadline.value = (_deadline.value ?: LocalDate.now()).plusDays(1) }
+    fun clearDeadline() { _deadline.value = null }
 
     fun selectProject(projectId: String) {
         _selectedProjectId.value = projectId
+        _selectedSectionId.value = null
     }
+
+    fun selectSection(sectionId: String?) { _selectedSectionId.value = sectionId }
 
     fun createProject() {
         val title = _title.value.trim()
@@ -74,6 +76,7 @@ class ProjectsViewModel @Inject constructor(
             projectRepository.save(project)
                 .onSuccess {
                     _selectedProjectId.value = project.id
+                    _selectedSectionId.value = null
                     _title.value = ""
                     _description.value = ""
                     _deadline.value = null
@@ -87,10 +90,41 @@ class ProjectsViewModel @Inject constructor(
         viewModelScope.launch {
             projectRepository.archive(project.id)
                 .onSuccess {
-                    if (_selectedProjectId.value == project.id) _selectedProjectId.value = null
+                    if (_selectedProjectId.value == project.id) {
+                        _selectedProjectId.value = null
+                        _selectedSectionId.value = null
+                    }
                     _message.value = "Projeto arquivado."
                 }
                 .onFailure { _message.value = it.message ?: "Não foi possível arquivar o projeto." }
+        }
+    }
+
+    fun addSectionToSelectedProject() {
+        val projectId = _selectedProjectId.value
+        val title = _sectionTitle.value.trim()
+        if (projectId == null) {
+            _message.value = "Selecione um projeto."
+            return
+        }
+        if (title.isBlank()) {
+            _message.value = "Digite o nome da seção."
+            return
+        }
+        viewModelScope.launch {
+            projectRepository.addSection(projectId, title)
+                .onSuccess {
+                    _sectionTitle.value = ""
+                    _message.value = "Seção criada."
+                }
+                .onFailure { _message.value = it.message ?: "Não foi possível criar a seção." }
+        }
+    }
+
+    fun toggleSection(projectId: String, sectionId: String) {
+        viewModelScope.launch {
+            projectRepository.toggleSection(projectId, sectionId)
+                .onFailure { _message.value = it.message ?: "Não foi possível atualizar a seção." }
         }
     }
 
@@ -106,7 +140,7 @@ class ProjectsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            projectRepository.addTask(projectId, taskTitle)
+            projectRepository.addTask(projectId, taskTitle, _selectedSectionId.value)
                 .onSuccess {
                     _taskTitle.value = ""
                     _message.value = "Tarefa adicionada ao projeto."
