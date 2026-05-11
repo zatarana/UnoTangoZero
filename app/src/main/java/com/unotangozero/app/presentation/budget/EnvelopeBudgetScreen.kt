@@ -122,6 +122,8 @@ private fun BudgetSummaryCard(summary: MonthlyBudgetSummary) {
             Text("Resumo de ${summary.yearMonth}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             SummaryLine("Receitas do mês", summary.totalIncomeInCents)
             SummaryLine("Orçado em envelopes", summary.totalAllocatedInCents)
+            SummaryLine("Sobra herdada", summary.totalRolloverInCents)
+            SummaryLine("Disponível nos envelopes", summary.totalAvailableInCents)
             SummaryLine("Gasto no mês", summary.totalSpentInCents)
             SummaryLine("A distribuir", summary.amountToDistributeInCents)
         }
@@ -187,6 +189,8 @@ private fun EnvelopeStatusCard(status: BudgetEnvelopeStatus, onDeleteEnvelope: (
             }
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             Text("Orçado: ${money(status.envelope.allocatedAmountInCents)}")
+            if (status.rolloverAmountInCents > 0L) Text("Sobra herdada: ${money(status.rolloverAmountInCents)}")
+            Text("Disponível: ${money(status.availableAmountInCents)}")
             Text("Gasto: ${money(status.spentAmountInCents)}")
             Text("Restante: ${money(status.remainingAmountInCents)}", fontWeight = FontWeight.SemiBold)
             if (status.isOverBudget) Text("Categoria estourada", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
