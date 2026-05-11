@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -15,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.BudgetEnvelopeStatus
+import com.unotangozero.app.domain.models.FinancialCategory
 import com.unotangozero.app.domain.models.MonthlyBudgetSummary
 import java.text.NumberFormat
 import java.util.Locale
@@ -41,6 +44,7 @@ import java.util.Locale
 fun EnvelopeBudgetRoute(viewModel: EnvelopeBudgetViewModel = hiltViewModel()) {
     val summary by viewModel.summary.collectAsState()
     val form by viewModel.form.collectAsState()
+    val categories by viewModel.expenseCategories.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
 
@@ -56,7 +60,9 @@ fun EnvelopeBudgetRoute(viewModel: EnvelopeBudgetViewModel = hiltViewModel()) {
         EnvelopeBudgetScreen(
             summary = summary,
             form = form,
+            categories = categories,
             onCategoryChange = viewModel::onCategoryChange,
+            onCategorySelected = viewModel::onCategorySelected,
             onAmountChange = viewModel::onAmountChange,
             onRolloverChange = viewModel::onRolloverChange,
             onSaveEnvelope = viewModel::saveEnvelope,
@@ -69,7 +75,9 @@ fun EnvelopeBudgetRoute(viewModel: EnvelopeBudgetViewModel = hiltViewModel()) {
 fun EnvelopeBudgetScreen(
     summary: MonthlyBudgetSummary,
     form: EnvelopeBudgetFormState,
+    categories: List<FinancialCategory>,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAmountChange: (String) -> Unit,
     onRolloverChange: (Boolean) -> Unit,
     onSaveEnvelope: () -> Unit,
@@ -88,7 +96,9 @@ fun EnvelopeBudgetScreen(
         item {
             EnvelopeFormCard(
                 form = form,
+                categories = categories,
                 onCategoryChange = onCategoryChange,
+                onCategorySelected = onCategorySelected,
                 onAmountChange = onAmountChange,
                 onRolloverChange = onRolloverChange,
                 onSaveEnvelope = onSaveEnvelope
@@ -129,7 +139,9 @@ private fun SummaryLine(label: String, value: Long) {
 @Composable
 private fun EnvelopeFormCard(
     form: EnvelopeBudgetFormState,
+    categories: List<FinancialCategory>,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAmountChange: (String) -> Unit,
     onRolloverChange: (Boolean) -> Unit,
     onSaveEnvelope: () -> Unit
@@ -138,6 +150,17 @@ private fun EnvelopeFormCard(
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Novo envelope", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
+            if (categories.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(categories, key = { it.id }) { category ->
+                        FilterChip(
+                            selected = form.category == category.displayLabel,
+                            onClick = { onCategorySelected(category) },
+                            label = { Text(category.displayLabel) }
+                        )
+                    }
+                }
+            }
             OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor orçado") }, prefix = { Text("R$ ") }, singleLine = true)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = form.rolloverEnabled, onCheckedChange = onRolloverChange)
