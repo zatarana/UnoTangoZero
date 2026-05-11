@@ -55,6 +55,9 @@ class TasksViewModel @Inject constructor(
     val taskTags: StateFlow<Map<String, List<String>>> = taskTagRepository.tags
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    private val _selectedTag = MutableStateFlow<String?>(null)
+    val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
+
     private val _editorState = MutableStateFlow(TaskEditorUiState())
     val editorState: StateFlow<TaskEditorUiState> = _editorState.asStateFlow()
 
@@ -68,6 +71,7 @@ class TasksViewModel @Inject constructor(
     fun onPriorityChange(priority: Priority) { _editorState.value = _editorState.value.copy(priority = priority) }
     fun onRecurrenceTypeChange(value: RecurrenceType) { _editorState.value = _editorState.value.copy(recurrenceType = value) }
     fun onTagsChange(value: String) { _editorState.value = _editorState.value.copy(tagsText = value) }
+    fun onTagFilterChange(tag: String?) { _selectedTag.value = tag }
 
     fun onEstimatedHoursChange(value: String) {
         _editorState.value = _editorState.value.copy(estimatedHoursText = value.filter { it.isDigit() }.take(3))
