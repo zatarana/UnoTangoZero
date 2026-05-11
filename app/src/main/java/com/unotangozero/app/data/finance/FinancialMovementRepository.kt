@@ -11,7 +11,6 @@ import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
 import com.google.gson.reflect.TypeToken
 import com.unotangozero.app.data.accounts.FinancialAccountRepository
-import com.unotangozero.app.domain.enums.FinancialAccountType
 import com.unotangozero.app.domain.models.AccountBalance
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
@@ -50,6 +49,7 @@ class FinancialMovementRepository @Inject constructor(
             val delta = movements.sumOf { movement ->
                 when (movement.type) {
                     FinancialMovementType.INCOME -> if (movement.accountId == account.id) movement.amountInCents else 0L
+                    FinancialMovementType.EXPENSE -> if (movement.accountId == account.id) -movement.amountInCents else 0L
                     FinancialMovementType.TRANSFER -> when (account.id) {
                         movement.fromAccountId -> -movement.amountInCents
                         movement.toAccountId -> movement.amountInCents
@@ -57,12 +57,7 @@ class FinancialMovementRepository @Inject constructor(
                     }
                 }
             }
-            val balance = if (account.type == FinancialAccountType.CREDIT_CARD) {
-                account.initialBalanceInCents + delta
-            } else {
-                account.initialBalanceInCents + delta
-            }
-            AccountBalance(account = account, currentBalanceInCents = balance)
+            AccountBalance(account = account, currentBalanceInCents = account.initialBalanceInCents + delta)
         }
     }
 
