@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notes
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.unotangozero.app.presentation.agenda.AgendaRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
+import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
@@ -54,6 +56,7 @@ private val destinations = listOf(
     TangoDestination("Tarefas", Icons.Default.CheckCircle),
     TangoDestination("Agenda", Icons.Default.Event),
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet),
+    TangoDestination("Dívidas", Icons.Default.CreditCard),
     TangoDestination("Notas", Icons.Default.Notes)
 )
 
@@ -95,7 +98,8 @@ private fun TangoAppRoot() {
                 1 -> TasksRoute()
                 2 -> AgendaRoute()
                 3 -> FinanceRoute()
-                4 -> NotesRoute()
+                4 -> DebtsRoute()
+                5 -> NotesRoute()
             }
         }
     }
