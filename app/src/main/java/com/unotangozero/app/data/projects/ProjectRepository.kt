@@ -11,6 +11,7 @@ import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializer
 import com.google.gson.reflect.TypeToken
 import com.unotangozero.app.domain.models.Project
+import com.unotangozero.app.domain.models.ProjectSection
 import com.unotangozero.app.domain.models.ProjectTask
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -58,12 +59,51 @@ class ProjectRepository @Inject constructor(
         }
     }
 
-    suspend fun addTask(projectId: String, title: String): Result<Unit> = runCatching {
+    suspend fun addSection(projectId: String, title: String): Result<Unit> = runCatching {
         context.projectsDataStore.edit { preferences ->
             val current = parseProjects(preferences[projectsKey])
             val updated = current.map { project ->
                 if (project.id == projectId) {
-                    project.copy(tasks = project.tasks + ProjectTask(title = title), updatedAt = LocalDateTime.now())
+                    project.copy(sections = project.sections + ProjectSection(title = title), updatedAt = LocalDateTime.now())
+                } else project
+            }
+            preferences[projectsKey] = gson.toJson(updated)
+        }
+    }
+
+    suspend fun toggleSection(projectId: String, sectionId: String): Result<Unit> = runCatching {
+        context.projectsDataStore.edit { preferences ->
+            val current = parseProjects(preferences[projectsKey])
+            val updated = current.map { project ->
+                if (project.id == projectId) {
+                    project.copy(
+                        sections = project.sections.map { section ->
+                            if (section.id == sectionId) section.copy(isCollapsed = !section.isCollapsed) else section
+                        },
+                        updatedAt = LocalDateTime.now()
+                    )
+                } else project
+            }
+            preferences[projectsKey] = gson.toJson(updated)
+        }
+    }
+
+    suspend fun addTask(projectId: String, title: String, sectionId: String? = null): Result<Unit> = runCatching {
+        context.projectsDataStore.edit { preferences ->
+            val current = parseProjects(preferences[projectsKey])
+            val updated = current.map { project ->
+                if (project.id == projectId) {
+                    val task = ProjectTask(title = title)
+                    if (sectionId == null) {
+                        project.copy(tasks = project.tasks + task, updatedAt = LocalDateTime.now())
+                    } else {
+                        project.copy(
+                            sections = project.sections.map { section ->
+                                if (section.id == sectionId) section.copy(tasks = section.tasks + task) else section
+                            },
+                            updatedAt = LocalDateTime.now()
+                        )
+                    }
                 } else project
             }
             preferences[projectsKey] = gson.toJson(updated)
@@ -78,6 +118,11 @@ class ProjectRepository @Inject constructor(
                     project.copy(
                         tasks = project.tasks.map { task ->
                             if (task.id == taskId) task.copy(isCompleted = !task.isCompleted) else task
+                        },
+                        sections = project.sections.map { section ->
+                            section.copy(tasks = section.tasks.map { task ->
+                                if (task.id == taskId) task.copy(isCompleted = !task.isCompleted) else task
+                            })
                         },
                         updatedAt = LocalDateTime.now()
                     )
