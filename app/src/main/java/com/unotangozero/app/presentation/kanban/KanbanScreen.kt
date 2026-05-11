@@ -9,13 +9,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +43,9 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun KanbanRoute(viewModel: KanbanViewModel = hiltViewModel()) {
     val columns by viewModel.columns.collectAsState()
+    val taskTags by viewModel.taskTags.collectAsState()
+    val allTags by viewModel.allTags.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -51,13 +58,24 @@ fun KanbanRoute(viewModel: KanbanViewModel = hiltViewModel()) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         SnackbarHost(hostState = snackbarHostState)
-        KanbanScreen(columns = columns, onMoveTask = viewModel::moveTask)
+        KanbanScreen(
+            columns = columns,
+            taskTags = taskTags,
+            allTags = allTags,
+            selectedTag = selectedTag,
+            onTagFilterChange = viewModel::onTagFilterChange,
+            onMoveTask = viewModel::moveTask
+        )
     }
 }
 
 @Composable
 fun KanbanScreen(
     columns: List<KanbanColumnUiState>,
+    taskTags: Map<String, List<String>>,
+    allTags: List<String>,
+    selectedTag: String?,
+    onTagFilterChange: (String?) -> Unit,
     onMoveTask: (Task, TaskKanbanColumn) -> Unit
 ) {
     Column(
@@ -68,7 +86,11 @@ fun KanbanScreen(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Kanban", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Visualize tarefas por estágio e mova entre A fazer, Em andamento e Concluído.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Visualize tarefas por estágio e filtre o quadro por tags.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (allTags.isNotEmpty()) {
+            TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange)
         }
 
         Row(
@@ -78,7 +100,30 @@ fun KanbanScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             columns.forEach { column ->
-                KanbanColumnCard(column = column, onMoveTask = onMoveTask)
+                KanbanColumnCard(column = column, taskTags = taskTags, onMoveTask = onMoveTask)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagFilterRow(tags: List<String>, selectedTag: String?, onTagFilterChange: (String?) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Filtrar por tag", style = MaterialTheme.typography.labelLarge)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FilterChip(
+                    selected = selectedTag == null,
+                    onClick = { onTagFilterChange(null) },
+                    label = { Text("Todas") }
+                )
+            }
+            items(tags) { tag ->
+                FilterChip(
+                    selected = selectedTag == tag,
+                    onClick = { onTagFilterChange(tag) },
+                    label = { Text("#$tag") }
+                )
             }
         }
     }
@@ -87,6 +132,7 @@ fun KanbanScreen(
 @Composable
 private fun KanbanColumnCard(
     column: KanbanColumnUiState,
+    taskTags: Map<String, List<String>>,
     onMoveTask: (Task, TaskKanbanColumn) -> Unit
 ) {
     Card(
@@ -108,7 +154,12 @@ private fun KanbanColumnCard(
                 Text("Nenhuma tarefa aqui.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 column.tasks.forEach { task ->
-                    KanbanTaskCard(task = task, currentColumn = column.column, onMoveTask = onMoveTask)
+                    KanbanTaskCard(
+                        task = task,
+                        tags = taskTags[task.id].orEmpty(),
+                        currentColumn = column.column,
+                        onMoveTask = onMoveTask
+                    )
                 }
             }
         }
@@ -118,6 +169,7 @@ private fun KanbanColumnCard(
 @Composable
 private fun KanbanTaskCard(
     task: Task,
+    tags: List<String>,
     currentColumn: TaskKanbanColumn,
     onMoveTask: (Task, TaskKanbanColumn) -> Unit
 ) {
@@ -135,6 +187,11 @@ private fun KanbanTaskCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (tags.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 IconButton(
                     onClick = { onMoveTask(task, previousColumn(currentColumn)) },
