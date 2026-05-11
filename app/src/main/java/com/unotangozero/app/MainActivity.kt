@@ -42,6 +42,7 @@ import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.focus.FocusRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
+import com.unotangozero.app.presentation.kanban.KanbanRoute
 import com.unotangozero.app.presentation.more.MoreRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
@@ -60,7 +61,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, PROJECTS, FOCUS, ACCOUNTS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class ExtraDestination { MORE, PROJECTS, KANBAN, FOCUS, ACCOUNTS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -115,9 +116,11 @@ private fun TangoAppRoot() {
                         onOpenBackup = { extraDestination = ExtraDestination.BACKUP },
                         onOpenAccounts = { extraDestination = ExtraDestination.ACCOUNTS },
                         onOpenProjects = { extraDestination = ExtraDestination.PROJECTS },
-                        onOpenFocus = { extraDestination = ExtraDestination.FOCUS }
+                        onOpenFocus = { extraDestination = ExtraDestination.FOCUS },
+                        onOpenKanban = { extraDestination = ExtraDestination.KANBAN }
                     )
                     ExtraDestination.PROJECTS -> ProjectsRoute()
+                    ExtraDestination.KANBAN -> KanbanRoute()
                     ExtraDestination.FOCUS -> FocusRoute()
                     ExtraDestination.ACCOUNTS -> AccountsRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
