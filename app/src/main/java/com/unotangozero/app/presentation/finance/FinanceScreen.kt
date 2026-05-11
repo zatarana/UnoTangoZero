@@ -48,6 +48,7 @@ import java.util.Locale
 fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
     val expenses by viewModel.expenses.collectAsState()
     val budgetStatus by viewModel.budgetStatus.collectAsState()
+    val report by viewModel.report.collectAsState()
     val totalMonthInCents by viewModel.totalMonthInCents.collectAsState()
     val description by viewModel.description.collectAsState()
     val amountText by viewModel.amountText.collectAsState()
@@ -70,6 +71,7 @@ fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
         FinanceScreen(
             expenses = expenses,
             budgetStatus = budgetStatus,
+            report = report,
             totalMonthInCents = totalMonthInCents,
             description = description,
             amountText = amountText,
@@ -92,6 +94,7 @@ fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
 fun FinanceScreen(
     expenses: List<Expense>,
     budgetStatus: List<BudgetStatus>,
+    report: FinanceReportUiState,
     totalMonthInCents: Long,
     description: String,
     amountText: String,
@@ -115,7 +118,7 @@ fun FinanceScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Registre gastos e defina orçamentos mensais por categoria.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Registre gastos, defina orçamentos e acompanhe seu relatório mensal.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -124,13 +127,20 @@ fun FinanceScreen(
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Total gasto no mês", style = MaterialTheme.typography.labelLarge)
                     Text(formatMoney(totalMonthInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text("${report.expenseCount} gasto(s) • média ${formatMoney(report.averageExpenseInCents)}", style = MaterialTheme.typography.bodyMedium)
+                    report.topCategory?.let { Text("Categoria principal: ${it.displayName}", style = MaterialTheme.typography.bodySmall) }
                 }
             }
         }
 
-        item {
-            SectionTitle("Novo gasto")
+        if (report.categoryTotals.isNotEmpty()) {
+            item { SectionTitle("Relatório por categoria") }
+            items(report.categoryTotals, key = { it.category.name }) { item ->
+                CategoryReportCard(item)
+            }
         }
+
+        item { SectionTitle("Novo gasto") }
 
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -143,9 +153,7 @@ fun FinanceScreen(
             }
         }
 
-        item {
-            SectionTitle("Orçamento mensal")
-        }
+        item { SectionTitle("Orçamento mensal") }
 
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -172,6 +180,21 @@ fun FinanceScreen(
             items(items = expenses, key = { it.id }) { expense ->
                 ExpenseCard(expense = expense, onDeleteExpense = onDeleteExpense)
             }
+        }
+    }
+}
+
+@Composable
+private fun CategoryReportCard(item: CategoryTotalUiState) {
+    val progress = (item.percentage / 100.0).coerceIn(0.0, 1.0).toFloat()
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(item.category.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(formatMoney(item.totalInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+            Text("${item.percentage.toInt()}% dos gastos do mês", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
