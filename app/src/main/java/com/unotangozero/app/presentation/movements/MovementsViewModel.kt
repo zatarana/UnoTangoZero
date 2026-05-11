@@ -50,7 +50,9 @@ class MovementsViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onTypeChange(type: FinancialMovementType) { _form.value = _form.value.copy(type = type) }
+    fun onTypeChange(type: FinancialMovementType) {
+        if (type != FinancialMovementType.ADJUSTMENT) _form.value = _form.value.copy(type = type)
+    }
     fun onDescriptionChange(value: String) { _form.value = _form.value.copy(description = value) }
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
     fun onCategoryChange(value: String) { _form.value = _form.value.copy(category = value) }
@@ -118,6 +120,10 @@ class MovementsViewModel @Inject constructor(
                     fromAccountId = state.fromAccountId,
                     toAccountId = state.toAccountId
                 )
+            }
+            FinancialMovementType.ADJUSTMENT -> {
+                _message.value = "Ajuste de saldo deve ser feito pela tela Reconciliação."
+                return
             }
         }
 
