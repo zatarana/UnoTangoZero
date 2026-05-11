@@ -54,6 +54,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
     val tasks by viewModel.tasks.collectAsState()
     val taskDurations by viewModel.taskDurations.collectAsState()
     val taskTags by viewModel.taskTags.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
     val editorState by viewModel.editorState.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -72,6 +73,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
             tasks = tasks,
             taskDurations = taskDurations,
             taskTags = taskTags,
+            selectedTag = selectedTag,
             editorState = editorState,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
@@ -82,6 +84,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
             onEstimatedHoursChange = viewModel::onEstimatedHoursChange,
             onEstimatedMinutesChange = viewModel::onEstimatedMinutesChange,
             onTagsChange = viewModel::onTagsChange,
+            onTagFilterChange = viewModel::onTagFilterChange,
             onSaveClick = viewModel::saveTaskFromEditor,
             onCancelEdit = viewModel::cancelEditing,
             onStartEdit = viewModel::startEditing,
@@ -96,6 +99,7 @@ fun TasksScreen(
     tasks: List<Task>,
     taskDurations: Map<String, Int>,
     taskTags: Map<String, List<String>>,
+    selectedTag: String?,
     editorState: TaskEditorUiState,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
@@ -106,12 +110,20 @@ fun TasksScreen(
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
     onTagsChange: (String) -> Unit,
+    onTagFilterChange: (String?) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Task) -> Unit,
     onToggleTask: (Task) -> Unit,
     onDeleteTask: (Task) -> Unit
 ) {
+    val allTags = remember(taskTags) {
+        taskTags.values.flatten().distinct().sorted()
+    }
+    val filteredTasks = remember(tasks, taskTags, selectedTag) {
+        selectedTag?.let { tag -> tasks.filter { task -> taskTags[task.id].orEmpty().contains(tag) } } ?: tasks
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -120,7 +132,7 @@ fun TasksScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Crie, edite e acompanhe tarefas com tags, recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Crie, edite e filtre tarefas por tags, recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -141,10 +153,16 @@ fun TasksScreen(
             )
         }
 
-        if (tasks.isEmpty()) {
-            item { EmptyTasksCard() }
+        if (allTags.isNotEmpty()) {
+            item {
+                TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange)
+            }
+        }
+
+        if (filteredTasks.isEmpty()) {
+            item { EmptyTasksCard(hasFilter = selectedTag != null) }
         } else {
-            items(items = tasks, key = { it.id }) { task ->
+            items(items = filteredTasks, key = { it.id }) { task ->
                 TaskCard(
                     task = task,
                     estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
@@ -152,6 +170,29 @@ fun TasksScreen(
                     onStartEdit = onStartEdit,
                     onToggleTask = onToggleTask,
                     onDeleteTask = onDeleteTask
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagFilterRow(tags: List<String>, selectedTag: String?, onTagFilterChange: (String?) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Filtrar por tag", style = MaterialTheme.typography.labelLarge)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FilterChip(
+                    selected = selectedTag == null,
+                    onClick = { onTagFilterChange(null) },
+                    label = { Text("Todas") }
+                )
+            }
+            items(tags) { tag ->
+                FilterChip(
+                    selected = selectedTag == tag,
+                    onClick = { onTagFilterChange(tag) },
+                    label = { Text("#$tag") }
                 )
             }
         }
@@ -242,11 +283,11 @@ private fun <T> ChipSelector(title: String, options: List<T>, selected: T, label
 }
 
 @Composable
-private fun EmptyTasksCard() {
+private fun EmptyTasksCard(hasFilter: Boolean) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Nenhuma tarefa cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("Adicione uma tarefa acima para começar seu planejamento.", style = MaterialTheme.typography.bodyMedium)
+            Text(if (hasFilter) "Nenhuma tarefa com essa tag" else "Nenhuma tarefa cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(if (hasFilter) "Limpe o filtro ou escolha outra tag." else "Adicione uma tarefa acima para começar seu planejamento.", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
