@@ -108,7 +108,7 @@ fun MovementsScreen(
     ) {
         item {
             Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Cadastre receitas e transferências entre contas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Cadastre receitas, despesas e transferências entre contas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (accounts.isEmpty()) {
@@ -189,12 +189,19 @@ private fun MovementFormCard(
                 IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
             }
 
-            if (form.type == FinancialMovementType.INCOME) {
-                OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria da receita") }, singleLine = true)
-                AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
-            } else {
-                AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
-                AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
+            when (form.type) {
+                FinancialMovementType.INCOME -> {
+                    OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria da receita") }, singleLine = true)
+                    AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
+                }
+                FinancialMovementType.EXPENSE -> {
+                    OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria da despesa") }, singleLine = true)
+                    AccountPicker("Conta de saída", accounts, form.accountId, onAccountChange)
+                }
+                FinancialMovementType.TRANSFER -> {
+                    AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
+                    AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
+                }
             }
 
             Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar movimentação") }
@@ -219,6 +226,7 @@ private fun MovementCard(movement: FinancialMovement, accounts: List<FinancialAc
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val accountName = when (movement.type) {
         FinancialMovementType.INCOME -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
+        FinancialMovementType.EXPENSE -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
         FinancialMovementType.TRANSFER -> {
             val from = accounts.firstOrNull { it.id == movement.fromAccountId }?.name ?: "Origem"
             val to = accounts.firstOrNull { it.id == movement.toAccountId }?.name ?: "Destino"
