@@ -25,7 +25,8 @@ data class BillFormState(
     val amountText: String = "",
     val category: String = "",
     val dueDate: LocalDate = LocalDate.now(),
-    val selectedAccountId: String? = null
+    val selectedAccountId: String? = null,
+    val installmentsText: String = "1"
 )
 
 data class BillsUiState(
@@ -65,12 +66,14 @@ class BillsViewModel @Inject constructor(
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
     fun onCategoryChange(value: String) { _form.value = _form.value.copy(category = value) }
     fun onAccountChange(accountId: String?) { _form.value = _form.value.copy(selectedAccountId = accountId) }
+    fun onInstallmentsChange(value: String) { _form.value = _form.value.copy(installmentsText = value.filter { it.isDigit() }.take(3)) }
     fun previousDay() { _form.value = _form.value.copy(dueDate = _form.value.dueDate.minusDays(1)) }
     fun nextDay() { _form.value = _form.value.copy(dueDate = _form.value.dueDate.plusDays(1)) }
 
     fun saveBill() {
         val state = _form.value
         val amount = parseMoneyToCents(state.amountText)
+        val installments = (state.installmentsText.toIntOrNull() ?: 1).coerceIn(1, 120)
         if (state.description.trim().isBlank()) {
             _message.value = "Digite uma descrição."
             return
@@ -80,19 +83,28 @@ class BillsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            plannedBillRepository.saveBill(
-                PlannedBill(
-                    type = state.type,
-                    description = state.description.trim(),
-                    amountInCents = amount,
-                    dueDate = state.dueDate,
-                    category = state.category.trim().ifBlank { null }
+            val results = (1..installments).map { index ->
+                val description = if (installments > 1) {
+                    "${state.description.trim()} ($index/$installments)"
+                } else {
+                    state.description.trim()
+                }
+                plannedBillRepository.saveBill(
+                    PlannedBill(
+                        type = state.type,
+                        description = description,
+                        amountInCents = amount,
+                        dueDate = state.dueDate.plusMonths((index - 1).toLong()),
+                        category = state.category.trim().ifBlank { null }
+                    )
                 )
-            ).onSuccess {
+            }
+            val failure = results.firstOrNull { it.isFailure }?.exceptionOrNull()
+            if (failure == null) {
                 _form.value = BillFormState(type = state.type)
-                _message.value = "Conta planejada salva."
-            }.onFailure {
-                _message.value = it.message ?: "Não foi possível salvar."
+                _message.value = if (installments > 1) "$installments parcelas criadas." else "Conta planejada salva."
+            } else {
+                _message.value = failure.message ?: "Não foi possível salvar todas as parcelas."
             }
         }
     }
