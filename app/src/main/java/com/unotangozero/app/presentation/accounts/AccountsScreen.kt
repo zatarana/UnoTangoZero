@@ -90,14 +90,27 @@ fun AccountsScreen(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(Modifier.fillMaxWidth(), name, onNameChange, label = { Text("Nome da conta") }, singleLine = true)
-                    OutlinedTextField(Modifier.fillMaxWidth(), balanceText, onBalanceChange, label = { Text("Saldo inicial real") }, singleLine = true, prefix = { Text("R$ ") })
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = name,
+                        onValueChange = onNameChange,
+                        label = { Text("Nome da conta") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = balanceText,
+                        onValueChange = onBalanceChange,
+                        label = { Text("Saldo inicial real") },
+                        singleLine = true,
+                        prefix = { Text("R$ ") }
+                    )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(FinancialAccountType.entries) { type ->
-                            FilterChip(selectedType == type, { onTypeChange(type) }, label = { Text(type.displayName) })
+                            FilterChip(selected = selectedType == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
                         }
                     }
-                    Button(Modifier.fillMaxWidth(), onClick = onSaveAccount) { Text("Criar conta") }
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveAccount) { Text("Criar conta") }
                 }
             }
         }
