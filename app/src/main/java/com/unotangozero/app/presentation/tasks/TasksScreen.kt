@@ -51,6 +51,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
     val tasks by viewModel.tasks.collectAsState()
+    val taskDurations by viewModel.taskDurations.collectAsState()
     val editorState by viewModel.editorState.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -67,6 +68,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
         SnackbarHost(hostState = snackbarHostState)
         TasksScreen(
             tasks = tasks,
+            taskDurations = taskDurations,
             editorState = editorState,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
@@ -74,6 +76,8 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
             onCategoryChange = viewModel::onCategoryChange,
             onPriorityChange = viewModel::onPriorityChange,
             onRecurrenceTypeChange = viewModel::onRecurrenceTypeChange,
+            onEstimatedHoursChange = viewModel::onEstimatedHoursChange,
+            onEstimatedMinutesChange = viewModel::onEstimatedMinutesChange,
             onSaveClick = viewModel::saveTaskFromEditor,
             onCancelEdit = viewModel::cancelEditing,
             onStartEdit = viewModel::startEditing,
@@ -86,6 +90,7 @@ fun TasksRoute(viewModel: TasksViewModel = hiltViewModel()) {
 @Composable
 fun TasksScreen(
     tasks: List<Task>,
+    taskDurations: Map<String, Int>,
     editorState: TaskEditorUiState,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
@@ -93,6 +98,8 @@ fun TasksScreen(
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
+    onEstimatedHoursChange: (String) -> Unit,
+    onEstimatedMinutesChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Task) -> Unit,
@@ -107,7 +114,7 @@ fun TasksScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Crie, edite e acompanhe tarefas com recorrência e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Crie, edite e acompanhe tarefas com recorrência, duração estimada e lembrete padrão.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -120,6 +127,8 @@ fun TasksScreen(
                 onCategoryChange = onCategoryChange,
                 onPriorityChange = onPriorityChange,
                 onRecurrenceTypeChange = onRecurrenceTypeChange,
+                onEstimatedHoursChange = onEstimatedHoursChange,
+                onEstimatedMinutesChange = onEstimatedMinutesChange,
                 onSaveClick = onSaveClick,
                 onCancelEdit = onCancelEdit
             )
@@ -129,7 +138,13 @@ fun TasksScreen(
             item { EmptyTasksCard() }
         } else {
             items(items = tasks, key = { it.id }) { task ->
-                TaskCard(task = task, onStartEdit = onStartEdit, onToggleTask = onToggleTask, onDeleteTask = onDeleteTask)
+                TaskCard(
+                    task = task,
+                    estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
+                    onStartEdit = onStartEdit,
+                    onToggleTask = onToggleTask,
+                    onDeleteTask = onDeleteTask
+                )
             }
         }
     }
@@ -144,6 +159,8 @@ private fun TaskEditorCard(
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
+    onEstimatedHoursChange: (String) -> Unit,
+    onEstimatedMinutesChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit
 ) {
@@ -152,6 +169,7 @@ private fun TaskEditorCard(
             Text(if (state.isEditing) "Editar tarefa" else "Nova tarefa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Título") }, singleLine = true)
             DateSelector(date = state.dueDate, onPrevious = onDueDatePreviousDay, onNext = onDueDateNextDay)
+            DurationFields(state = state, onEstimatedHoursChange = onEstimatedHoursChange, onEstimatedMinutesChange = onEstimatedMinutesChange)
             ChipSelector(title = "Categoria", options = TaskCategory.entries, selected = state.category, label = { it.displayName }, onSelect = onCategoryChange)
             ChipSelector(title = "Prioridade", options = Priority.entries, selected = state.priority, label = { it.displayName }, onSelect = onPriorityChange)
             val recurrenceOptions = listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY)
@@ -160,6 +178,33 @@ private fun TaskEditorCard(
             if (state.isEditing) {
                 OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar edição") }
             }
+        }
+    }
+}
+
+@Composable
+private fun DurationFields(
+    state: TaskEditorUiState,
+    onEstimatedHoursChange: (String) -> Unit,
+    onEstimatedMinutesChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Duração estimada", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = state.estimatedHoursText,
+                onValueChange = onEstimatedHoursChange,
+                label = { Text("Horas") },
+                singleLine = true
+            )
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = state.estimatedMinutesText,
+                onValueChange = onEstimatedMinutesChange,
+                label = { Text("Minutos") },
+                singleLine = true
+            )
         }
     }
 }
@@ -202,7 +247,13 @@ private fun EmptyTasksCard() {
 }
 
 @Composable
-private fun TaskCard(task: Task, onStartEdit: (Task) -> Unit, onToggleTask: (Task) -> Unit, onDeleteTask: (Task) -> Unit) {
+private fun TaskCard(
+    task: Task,
+    estimatedDurationMinutes: Int,
+    onStartEdit: (Task) -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit
+) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -211,10 +262,21 @@ private fun TaskCard(task: Task, onStartEdit: (Task) -> Unit, onToggleTask: (Tas
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
-                Text("${task.category.displayName} • ${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
+                Text("${task.category.displayName} • ${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = { onStartEdit(task) }) { Icon(Icons.Default.Edit, contentDescription = "Editar tarefa") }
             IconButton(onClick = { onDeleteTask(task) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir tarefa") }
         }
+    }
+}
+
+private fun formatDuration(totalMinutes: Int): String {
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}min"
+        hours > 0 -> "${hours}h"
+        else -> "${minutes}min"
     }
 }
