@@ -51,6 +51,7 @@ import com.unotangozero.app.presentation.more.MoreRoute
 import com.unotangozero.app.presentation.movements.MovementsRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
+import com.unotangozero.app.presentation.projection.FutureBalanceProjectionRoute
 import com.unotangozero.app.presentation.reports.FinancialReportsRoute
 import com.unotangozero.app.presentation.settings.SettingsRoute
 import com.unotangozero.app.presentation.shopping.ShoppingRoute
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, MOVEMENTS, BUDGET, REPORTS, BILLS, GOALS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, MOVEMENTS, BUDGET, REPORTS, PROJECTION, BILLS, GOALS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -129,7 +130,8 @@ private fun TangoAppRoot() {
                         onOpenBills = { extraDestination = ExtraDestination.BILLS },
                         onOpenGoals = { extraDestination = ExtraDestination.GOALS },
                         onOpenBudget = { extraDestination = ExtraDestination.BUDGET },
-                        onOpenReports = { extraDestination = ExtraDestination.REPORTS }
+                        onOpenReports = { extraDestination = ExtraDestination.REPORTS },
+                        onOpenProjection = { extraDestination = ExtraDestination.PROJECTION }
                     )
                     ExtraDestination.PROJECTS -> ProjectsRoute()
                     ExtraDestination.FOCUS_MODE -> FocusModeRoute()
@@ -139,6 +141,7 @@ private fun TangoAppRoot() {
                     ExtraDestination.MOVEMENTS -> MovementsRoute()
                     ExtraDestination.BUDGET -> EnvelopeBudgetRoute()
                     ExtraDestination.REPORTS -> FinancialReportsRoute()
+                    ExtraDestination.PROJECTION -> FutureBalanceProjectionRoute()
                     ExtraDestination.BILLS -> BillsRoute()
                     ExtraDestination.GOALS -> SavingsGoalsRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
