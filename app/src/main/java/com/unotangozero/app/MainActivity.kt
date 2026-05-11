@@ -45,6 +45,7 @@ import com.unotangozero.app.presentation.focusmode.FocusModeRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
 import com.unotangozero.app.presentation.kanban.KanbanRoute
 import com.unotangozero.app.presentation.more.MoreRoute
+import com.unotangozero.app.presentation.movements.MovementsRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
 import com.unotangozero.app.presentation.settings.SettingsRoute
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, MOVEMENTS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -119,13 +120,15 @@ private fun TangoAppRoot() {
                         onOpenProjects = { extraDestination = ExtraDestination.PROJECTS },
                         onOpenFocus = { extraDestination = ExtraDestination.FOCUS },
                         onOpenKanban = { extraDestination = ExtraDestination.KANBAN },
-                        onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE }
+                        onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE },
+                        onOpenMovements = { extraDestination = ExtraDestination.MOVEMENTS }
                     )
                     ExtraDestination.PROJECTS -> ProjectsRoute()
                     ExtraDestination.FOCUS_MODE -> FocusModeRoute()
                     ExtraDestination.KANBAN -> KanbanRoute()
                     ExtraDestination.FOCUS -> FocusRoute()
                     ExtraDestination.ACCOUNTS -> AccountsRoute()
+                    ExtraDestination.MOVEMENTS -> MovementsRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
                     ExtraDestination.HABITS -> HabitsRoute()
                     ExtraDestination.SHOPPING -> ShoppingRoute()
