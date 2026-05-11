@@ -8,12 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -24,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,6 +31,7 @@ import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
+import com.unotangozero.app.presentation.more.MoreRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.shopping.ShoppingRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
@@ -55,15 +54,20 @@ private data class TangoDestination(
     val icon: ImageVector
 )
 
+private enum class ExtraDestination {
+    MORE,
+    DEBTS,
+    HABITS,
+    SHOPPING,
+    NOTES
+}
+
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
     TangoDestination("Tarefas", Icons.Default.CheckCircle),
     TangoDestination("Agenda", Icons.Default.Event),
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet),
-    TangoDestination("Dívidas", Icons.Default.CreditCard),
-    TangoDestination("Hábitos", Icons.Default.Repeat),
-    TangoDestination("Compras", Icons.Default.ShoppingCart),
-    TangoDestination("Notas", Icons.Default.Notes)
+    TangoDestination("Mais", Icons.Default.MoreHoriz)
 )
 
 @Composable
@@ -78,6 +82,7 @@ private fun TangoTheme(content: @Composable () -> Unit) {
 @Composable
 private fun TangoAppRoot() {
     var selectedIndex by remember { mutableIntStateOf(0) }
+    var extraDestination by remember { mutableStateOf(ExtraDestination.MORE) }
 
     Scaffold(
         bottomBar = {
@@ -85,7 +90,12 @@ private fun TangoAppRoot() {
                 destinations.forEachIndexed { index, destination ->
                     NavigationBarItem(
                         selected = selectedIndex == index,
-                        onClick = { selectedIndex = index },
+                        onClick = {
+                            selectedIndex = index
+                            if (index != 4) {
+                                extraDestination = ExtraDestination.MORE
+                            }
+                        },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) }
                     )
@@ -104,10 +114,18 @@ private fun TangoAppRoot() {
                 1 -> TasksRoute()
                 2 -> AgendaRoute()
                 3 -> FinanceRoute()
-                4 -> DebtsRoute()
-                5 -> HabitsRoute()
-                6 -> ShoppingRoute()
-                7 -> NotesRoute()
+                4 -> when (extraDestination) {
+                    ExtraDestination.MORE -> MoreRoute(
+                        onOpenDebts = { extraDestination = ExtraDestination.DEBTS },
+                        onOpenHabits = { extraDestination = ExtraDestination.HABITS },
+                        onOpenShopping = { extraDestination = ExtraDestination.SHOPPING },
+                        onOpenNotes = { extraDestination = ExtraDestination.NOTES }
+                    )
+                    ExtraDestination.DEBTS -> DebtsRoute()
+                    ExtraDestination.HABITS -> HabitsRoute()
+                    ExtraDestination.SHOPPING -> ShoppingRoute()
+                    ExtraDestination.NOTES -> NotesRoute()
+                }
             }
         }
     }
