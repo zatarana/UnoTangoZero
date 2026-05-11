@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,7 +31,8 @@ fun MoreRoute(
     onOpenDebts: () -> Unit,
     onOpenHabits: () -> Unit,
     onOpenShopping: () -> Unit,
-    onOpenNotes: () -> Unit
+    onOpenNotes: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -85,6 +87,15 @@ fun MoreRoute(
                 title = "Notas",
                 description = "Guarde ideias, resumos e observações rápidas.",
                 onClick = onOpenNotes
+            )
+        }
+
+        item {
+            MoreCard(
+                icon = Icons.Default.Settings,
+                title = "Configurações",
+                description = "Ajuste notificações e horário padrão de lembrete.",
+                onClick = onOpenSettings
             )
         }
     }
