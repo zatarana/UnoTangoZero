@@ -20,6 +20,20 @@ import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
 
+data class FinanceReportUiState(
+    val totalInCents: Long = 0L,
+    val expenseCount: Int = 0,
+    val averageExpenseInCents: Long = 0L,
+    val topCategory: ExpenseCategory? = null,
+    val categoryTotals: List<CategoryTotalUiState> = emptyList()
+)
+
+data class CategoryTotalUiState(
+    val category: ExpenseCategory,
+    val totalInCents: Long,
+    val percentage: Double
+)
+
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
@@ -38,6 +52,31 @@ class FinanceViewModel @Inject constructor(
     val totalMonthInCents: StateFlow<Long> = expenses
         .map { it.sumOf { expense -> expense.amountInCents } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
+    val report: StateFlow<FinanceReportUiState> = expenses
+        .map { expensesList ->
+            val total = expensesList.sumOf { it.amountInCents }
+            val categoryTotals = expensesList
+                .groupBy { it.category }
+                .map { (category, items) ->
+                    val categoryTotal = items.sumOf { it.amountInCents }
+                    CategoryTotalUiState(
+                        category = category,
+                        totalInCents = categoryTotal,
+                        percentage = if (total > 0L) categoryTotal.toDouble() / total.toDouble() * 100.0 else 0.0
+                    )
+                }
+                .sortedByDescending { it.totalInCents }
+
+            FinanceReportUiState(
+                totalInCents = total,
+                expenseCount = expensesList.size,
+                averageExpenseInCents = if (expensesList.isNotEmpty()) total / expensesList.size else 0L,
+                topCategory = categoryTotals.firstOrNull()?.category,
+                categoryTotals = categoryTotals
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FinanceReportUiState())
 
     private val _description = MutableStateFlow("")
     val description: StateFlow<String> = _description.asStateFlow()
