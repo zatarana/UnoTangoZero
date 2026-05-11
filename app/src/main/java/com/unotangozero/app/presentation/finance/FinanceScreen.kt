@@ -4,119 +4,37 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.unotangozero.app.domain.enums.ExpenseCategory
-import com.unotangozero.app.domain.models.BudgetStatus
-import com.unotangozero.app.domain.models.Expense
+import com.unotangozero.app.domain.models.PlannedBill
 import java.text.NumberFormat
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun FinanceRoute(viewModel: FinanceViewModel = hiltViewModel()) {
-    val expenses by viewModel.expenses.collectAsState()
-    val budgetStatus by viewModel.budgetStatus.collectAsState()
-    val report by viewModel.report.collectAsState()
-    val totalMonthInCents by viewModel.totalMonthInCents.collectAsState()
-    val expenseEditorState by viewModel.expenseEditorState.collectAsState()
-    val budgetLimitText by viewModel.budgetLimitText.collectAsState()
-    val selectedBudgetCategory by viewModel.selectedBudgetCategory.collectAsState()
-    val message by viewModel.message.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(message) {
-        val currentMessage = message
-        if (currentMessage != null) {
-            snackbarHostState.showSnackbar(currentMessage)
-            viewModel.clearMessage()
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        SnackbarHost(hostState = snackbarHostState)
-        FinanceScreen(
-            expenses = expenses,
-            budgetStatus = budgetStatus,
-            report = report,
-            totalMonthInCents = totalMonthInCents,
-            expenseEditorState = expenseEditorState,
-            budgetLimitText = budgetLimitText,
-            selectedBudgetCategory = selectedBudgetCategory,
-            onExpenseDescriptionChange = viewModel::onExpenseDescriptionChange,
-            onExpenseAmountChange = viewModel::onExpenseAmountChange,
-            onExpenseCategoryChange = viewModel::onExpenseCategoryChange,
-            onExpenseDatePreviousDay = viewModel::onExpenseDatePreviousDay,
-            onExpenseDateNextDay = viewModel::onExpenseDateNextDay,
-            onSaveExpense = viewModel::saveExpenseFromEditor,
-            onCancelExpenseEdit = viewModel::cancelExpenseEditing,
-            onStartEditExpense = viewModel::startEditingExpense,
-            onBudgetLimitChange = viewModel::onBudgetLimitChange,
-            onBudgetCategoryChange = viewModel::onBudgetCategoryChange,
-            onCreateBudget = viewModel::createBudget,
-            onDeleteExpense = viewModel::deleteExpense
-        )
-    }
+fun FinanceRoute(viewModel: FinanceDashboardViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
+    FinanceScreen(uiState)
 }
 
 @Composable
-fun FinanceScreen(
-    expenses: List<Expense>,
-    budgetStatus: List<BudgetStatus>,
-    report: FinanceReportUiState,
-    totalMonthInCents: Long,
-    expenseEditorState: ExpenseEditorUiState,
-    budgetLimitText: String,
-    selectedBudgetCategory: ExpenseCategory,
-    onExpenseDescriptionChange: (String) -> Unit,
-    onExpenseAmountChange: (String) -> Unit,
-    onExpenseCategoryChange: (ExpenseCategory) -> Unit,
-    onExpenseDatePreviousDay: () -> Unit,
-    onExpenseDateNextDay: () -> Unit,
-    onSaveExpense: () -> Unit,
-    onCancelExpenseEdit: () -> Unit,
-    onStartEditExpense: (Expense) -> Unit,
-    onBudgetLimitChange: (String) -> Unit,
-    onBudgetCategoryChange: (ExpenseCategory) -> Unit,
-    onCreateBudget: () -> Unit,
-    onDeleteExpense: (Expense) -> Unit
-) {
+fun FinanceScreen(uiState: FinanceDashboardUiState) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -125,188 +43,121 @@ fun FinanceScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Registre, edite e acompanhe seus gastos e orçamentos.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Painel central com saldo, mês atual, orçamento e próximos vencimentos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Total gasto no mês", style = MaterialTheme.typography.labelLarge)
-                    Text(formatMoney(totalMonthInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("${report.expenseCount} gasto(s) • média ${formatMoney(report.averageExpenseInCents)}", style = MaterialTheme.typography.bodyMedium)
-                    report.topCategory?.let { Text("Categoria principal: ${it.displayName}", style = MaterialTheme.typography.bodySmall) }
-                }
-            }
+        item { BalanceHeroCard(uiState) }
+        item { MonthSummaryCard(uiState) }
+        item { BudgetPreviewCard(uiState) }
+        item { ProjectionPreviewCard(uiState) }
+
+        if (uiState.overdueBills.isNotEmpty()) {
+            item { SectionTitle("Vencidas") }
+            items(uiState.overdueBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
         }
 
-        if (report.categoryTotals.isNotEmpty()) {
-            item { SectionTitle("Relatório por categoria") }
-            items(report.categoryTotals, key = { it.category.name }) { item -> CategoryReportCard(item) }
-        }
-
-        item { SectionTitle(if (expenseEditorState.isEditing) "Editar gasto" else "Novo gasto") }
-        item {
-            ExpenseEditorCard(
-                state = expenseEditorState,
-                onDescriptionChange = onExpenseDescriptionChange,
-                onAmountChange = onExpenseAmountChange,
-                onCategoryChange = onExpenseCategoryChange,
-                onDatePreviousDay = onExpenseDatePreviousDay,
-                onDateNextDay = onExpenseDateNextDay,
-                onSaveExpense = onSaveExpense,
-                onCancelEdit = onCancelExpenseEdit
-            )
-        }
-
-        item { SectionTitle("Orçamento mensal") }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = budgetLimitText, onValueChange = onBudgetLimitChange, label = { Text("Limite da categoria") }, singleLine = true, prefix = { Text("R$ ") })
-                    CategoryChips(selectedCategory = selectedBudgetCategory, onCategoryChange = onBudgetCategoryChange)
-                    Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateBudget) { Text("Salvar orçamento") }
-                }
-            }
-        }
-
-        if (budgetStatus.isNotEmpty()) {
-            item { SectionTitle("Status dos orçamentos") }
-            items(items = budgetStatus, key = { it.category.name }) { status -> BudgetStatusCard(status = status) }
-        }
-
-        item { SectionTitle("Gastos do mês") }
-        if (expenses.isEmpty()) {
-            item { EmptyExpensesCard() }
+        item { SectionTitle("Próximos 30 dias") }
+        if (uiState.upcomingBills.isEmpty()) {
+            item { EmptyCard("Nenhuma conta planejada para os próximos 30 dias.") }
         } else {
-            items(items = expenses, key = { it.id }) { expense ->
-                ExpenseCard(expense = expense, onStartEditExpense = onStartEditExpense, onDeleteExpense = onDeleteExpense)
-            }
+            items(uiState.upcomingBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
+        }
+
+        item {
+            EmptyCard("Use a aba Mais para acessar: Contas, Movimentações, Orçamento, Relatórios, Metas, Reconciliação e Projeção de saldo.")
         }
     }
 }
 
 @Composable
-private fun ExpenseEditorCard(
-    state: ExpenseEditorUiState,
-    onDescriptionChange: (String) -> Unit,
-    onAmountChange: (String) -> Unit,
-    onCategoryChange: (ExpenseCategory) -> Unit,
-    onDatePreviousDay: () -> Unit,
-    onDateNextDay: () -> Unit,
-    onSaveExpense: () -> Unit,
-    onCancelEdit: () -> Unit
-) {
+private fun BalanceHeroCard(uiState: FinanceDashboardUiState) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Saldo total atual", style = MaterialTheme.typography.labelLarge)
+            Text(money(uiState.totalBalanceInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Considera contas, movimentações, transferências e ajustes de reconciliação.")
+        }
+    }
+}
+
+@Composable
+private fun MonthSummaryCard(uiState: FinanceDashboardUiState) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, singleLine = true, prefix = { Text("R$ ") })
-            DateSelector(date = state.date, onPrevious = onDatePreviousDay, onNext = onDateNextDay)
-            CategoryChips(selectedCategory = state.category, onCategoryChange = onCategoryChange)
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveExpense) { Text(if (state.isEditing) "Salvar alterações" else "Registrar gasto") }
-            if (state.isEditing) {
-                OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar edição") }
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Resumo do mês", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            SummaryLine("Receitas", uiState.monthlyIncomeInCents)
+            SummaryLine("Despesas", uiState.monthlyExpenseInCents)
+            SummaryLine("Ajustes", uiState.monthlyAdjustmentInCents)
+            SummaryLine("Resultado", uiState.monthlyBalanceInCents)
+        }
+    }
+}
+
+@Composable
+private fun BudgetPreviewCard(uiState: FinanceDashboardUiState) {
+    val budget = uiState.budgetSummary
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Orçamento", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (budget == null || budget.envelopes.isEmpty()) {
+                Text("Nenhum envelope criado para este mês.")
+            } else {
+                SummaryLine("Disponível", budget.totalAvailableInCents)
+                SummaryLine("Gasto", budget.totalSpentInCents)
+                SummaryLine("A distribuir", budget.amountToDistributeInCents)
+                val progress = if (budget.totalAvailableInCents > 0L) {
+                    (budget.totalSpentInCents.toDouble() / budget.totalAvailableInCents.toDouble()).toFloat().coerceIn(0f, 1f)
+                } else 0f
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             }
         }
     }
 }
 
 @Composable
-private fun DateSelector(date: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit) {
+private fun ProjectionPreviewCard(uiState: FinanceDashboardUiState) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Projeção próxima", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            SummaryLine("Impacto 30 dias", uiState.next30DaysImpactInCents)
+            SummaryLine("Saldo estimado", uiState.totalBalanceInCents + uiState.next30DaysImpactInCents)
+        }
+    }
+}
+
+@Composable
+private fun BillPreviewCard(bill: PlannedBill) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Data", style = MaterialTheme.typography.labelMedium)
-                Text(date.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}${bill.category?.let { " • $it" } ?: ""}")
+            Text(money(bill.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun CategoryReportCard(item: CategoryTotalUiState) {
-    val progress = (item.percentage / 100.0).coerceIn(0.0, 1.0).toFloat()
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(item.category.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(formatMoney(item.totalInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
-            Text("${item.percentage.toInt()}% dos gastos do mês", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+private fun SectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun EmptyCard(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(16.dp))
     }
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-}
-
-@Composable
-private fun CategoryChips(selectedCategory: ExpenseCategory, onCategoryChange: (ExpenseCategory) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(ExpenseCategory.entries) { category ->
-            FilterChip(selected = selectedCategory == category, onClick = { onCategoryChange(category) }, label = { Text(category.displayName) })
-        }
+private fun SummaryLine(label: String, value: Long) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label)
+        Text(money(value), fontWeight = FontWeight.SemiBold)
     }
 }
 
-@Composable
-private fun BudgetStatusCard(status: BudgetStatus) {
-    val progress = (status.percentageUsed / 100.0).coerceIn(0.0, 1.0).toFloat()
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(status.category.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("${status.percentageUsed.toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
-            Text("${formatMoney(status.spentAmountInCents)} de ${formatMoney(status.limitAmountInCents)}", style = MaterialTheme.typography.bodyMedium)
-            val label = when {
-                status.isOverBudget -> "Limite ultrapassado"
-                status.isWarning -> "Atenção: acima de 80%"
-                else -> "Dentro do orçamento"
-            }
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun EmptyExpensesCard() {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Nenhum gasto registrado", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("Registre um gasto acima para acompanhar seu mês.", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-private fun ExpenseCard(expense: Expense, onStartEditExpense: (Expense) -> Unit, onDeleteExpense: (Expense) -> Unit) {
-    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(expense.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = {}, label = { Text(expense.category.displayName) })
-                    Text(text = expense.date.format(formatter), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
-                }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(formatMoney(expense.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            IconButton(onClick = { onStartEditExpense(expense) }) { Icon(Icons.Default.Edit, contentDescription = "Editar gasto") }
-            IconButton(onClick = { onDeleteExpense(expense) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir gasto") }
-        }
-    }
-}
-
-private fun formatMoney(amountInCents: Long): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
-    return formatter.format(amountInCents / 100.0)
+private fun money(cents: Long): String {
+    return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(cents / 100.0)
 }
