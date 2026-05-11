@@ -24,6 +24,7 @@ data class Task(
     val isRecurring: Boolean = false,
     val recurrenceType: RecurrenceType? = null,
     val recurrenceEndDate: LocalDate? = null,
+    val estimatedDurationMinutes: Int = 0,
     val subtasks: List<SubTask> = emptyList(),
     val reminders: List<Reminder> = emptyList(),
     val createdAt: LocalDateTime = LocalDateTime.now(),
