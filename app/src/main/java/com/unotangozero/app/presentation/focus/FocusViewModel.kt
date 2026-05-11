@@ -3,9 +3,12 @@ package com.unotangozero.app.presentation.focus
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.focus.FocusRepository
+import com.unotangozero.app.data.projects.ProjectRepository
 import com.unotangozero.app.domain.models.FocusPhase
 import com.unotangozero.app.domain.models.FocusProfile
+import com.unotangozero.app.domain.models.FocusProjectSummary
 import com.unotangozero.app.domain.models.FocusSessionLog
+import com.unotangozero.app.domain.models.Project
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,7 +24,8 @@ import kotlin.math.max
 
 @HiltViewModel
 class FocusViewModel @Inject constructor(
-    private val focusRepository: FocusRepository
+    private val focusRepository: FocusRepository,
+    projectRepository: ProjectRepository
 ) : ViewModel() {
     val profiles: StateFlow<List<FocusProfile>> = focusRepository.profiles
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -28,8 +33,30 @@ class FocusViewModel @Inject constructor(
     val logs: StateFlow<List<FocusSessionLog>> = focusRepository.logs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val projects: StateFlow<List<Project>> = projectRepository.projects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val projectSummaries: StateFlow<List<FocusProjectSummary>> = focusRepository.logs
+        .map { logsList ->
+            logsList
+                .groupBy { it.projectId to (it.projectTitle ?: "Sem projeto") }
+                .map { (key, items) ->
+                    FocusProjectSummary(
+                        projectId = key.first,
+                        projectTitle = key.second,
+                        totalMinutes = items.sumOf { it.focusedMinutes },
+                        sessionCount = items.size
+                    )
+                }
+                .sortedByDescending { it.totalMinutes }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _selectedProfileId = MutableStateFlow("classic")
     val selectedProfileId: StateFlow<String> = _selectedProfileId.asStateFlow()
+
+    private val _selectedProjectId = MutableStateFlow<String?>(null)
+    val selectedProjectId: StateFlow<String?> = _selectedProjectId.asStateFlow()
 
     private val _taskName = MutableStateFlow("")
     val taskName: StateFlow<String> = _taskName.asStateFlow()
@@ -57,6 +84,11 @@ class FocusViewModel @Inject constructor(
     fun selectProfile(profileId: String) {
         if (_isRunning.value) return
         _selectedProfileId.value = profileId
+    }
+
+    fun selectProject(projectId: String?) {
+        if (_isRunning.value) return
+        _selectedProjectId.value = projectId
     }
 
     fun onTaskNameChange(value: String) {
@@ -115,9 +147,7 @@ class FocusViewModel @Inject constructor(
         }
     }
 
-    fun clearMessage() {
-        _message.value = null
-    }
+    fun clearMessage() { _message.value = null }
 
     private fun runTimer(profile: FocusProfile) {
         timerJob?.cancel()
@@ -125,9 +155,7 @@ class FocusViewModel @Inject constructor(
             while (_isRunning.value && _remainingSeconds.value > 0) {
                 delay(1_000)
                 _remainingSeconds.value = max(0, _remainingSeconds.value - 1)
-                if (_phase.value == FocusPhase.FOCUS) {
-                    _focusedSeconds.value += 1
-                }
+                if (_phase.value == FocusPhase.FOCUS) _focusedSeconds.value += 1
             }
             if (_isRunning.value) handlePhaseFinished(profile)
         }
@@ -175,12 +203,15 @@ class FocusViewModel @Inject constructor(
         val selected = profile ?: return
         val minutes = _focusedSeconds.value / 60
         if (minutes <= 0) return
+        val project = projects.value.firstOrNull { it.id == _selectedProjectId.value }
         focusRepository.addLog(
             FocusSessionLog(
                 taskName = _taskName.value.trim(),
                 profileName = selected.name,
                 focusedMinutes = minutes,
-                completedCycles = _currentCycle.value
+                completedCycles = _currentCycle.value,
+                projectId = project?.id,
+                projectTitle = project?.title
             )
         )
     }
