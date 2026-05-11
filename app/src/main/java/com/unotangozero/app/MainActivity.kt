@@ -33,6 +33,7 @@ import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
 import com.unotangozero.app.presentation.more.MoreRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
+import com.unotangozero.app.presentation.settings.SettingsRoute
 import com.unotangozero.app.presentation.shopping.ShoppingRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
 import dagger.hilt.android.AndroidEntryPoint
@@ -41,26 +42,13 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            TangoTheme {
-                TangoAppRoot()
-            }
-        }
+        setContent { TangoTheme { TangoAppRoot() } }
     }
 }
 
-private data class TangoDestination(
-    val label: String,
-    val icon: ImageVector
-)
+private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination {
-    MORE,
-    DEBTS,
-    HABITS,
-    SHOPPING,
-    NOTES
-}
+private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -72,11 +60,7 @@ private val destinations = listOf(
 
 @Composable
 private fun TangoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = androidx.compose.material3.lightColorScheme(),
-        typography = MaterialTheme.typography,
-        content = content
-    )
+    MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(), typography = MaterialTheme.typography, content = content)
 }
 
 @Composable
@@ -92,9 +76,7 @@ private fun TangoAppRoot() {
                         selected = selectedIndex == index,
                         onClick = {
                             selectedIndex = index
-                            if (index != 4) {
-                                extraDestination = ExtraDestination.MORE
-                            }
+                            if (index != 4) extraDestination = ExtraDestination.MORE
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) }
@@ -103,12 +85,7 @@ private fun TangoAppRoot() {
             }
         }
     ) { padding ->
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            color = MaterialTheme.colorScheme.background
-        ) {
+        Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (selectedIndex) {
                 0 -> DashboardRoute()
                 1 -> TasksRoute()
@@ -119,12 +96,14 @@ private fun TangoAppRoot() {
                         onOpenDebts = { extraDestination = ExtraDestination.DEBTS },
                         onOpenHabits = { extraDestination = ExtraDestination.HABITS },
                         onOpenShopping = { extraDestination = ExtraDestination.SHOPPING },
-                        onOpenNotes = { extraDestination = ExtraDestination.NOTES }
+                        onOpenNotes = { extraDestination = ExtraDestination.NOTES },
+                        onOpenSettings = { extraDestination = ExtraDestination.SETTINGS }
                     )
                     ExtraDestination.DEBTS -> DebtsRoute()
                     ExtraDestination.HABITS -> HabitsRoute()
                     ExtraDestination.SHOPPING -> ShoppingRoute()
                     ExtraDestination.NOTES -> NotesRoute()
+                    ExtraDestination.SETTINGS -> SettingsRoute()
                 }
             }
         }
