@@ -69,6 +69,7 @@ fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
             onAmountChange = viewModel::onAmountChange,
             onCategoryChange = viewModel::onCategoryChange,
             onAccountChange = viewModel::onAccountChange,
+            onInstallmentsChange = viewModel::onInstallmentsChange,
             onPreviousDay = viewModel::previousDay,
             onNextDay = viewModel::nextDay,
             onSave = viewModel::saveBill,
@@ -87,6 +88,7 @@ fun BillsScreen(
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
     onAccountChange: (String?) -> Unit,
+    onInstallmentsChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onSave: () -> Unit,
@@ -113,6 +115,7 @@ fun BillsScreen(
                 onAmountChange = onAmountChange,
                 onCategoryChange = onCategoryChange,
                 onAccountChange = onAccountChange,
+                onInstallmentsChange = onInstallmentsChange,
                 onPreviousDay = onPreviousDay,
                 onNextDay = onNextDay,
                 onSave = onSave
@@ -156,6 +159,7 @@ private fun BillFormCard(
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
     onAccountChange: (String?) -> Unit,
+    onInstallmentsChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onSave: () -> Unit
@@ -170,11 +174,12 @@ private fun BillFormCard(
                 }
             }
             OutlinedTextField(Modifier.fillMaxWidth(), form.description, onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(Modifier.fillMaxWidth(), form.installmentsText, onInstallmentsChange, label = { Text("Quantidade de parcelas") }, singleLine = true)
             OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria") }, singleLine = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                Text("Vencimento: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
+                Text("Primeiro vencimento: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
                 IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
             }
             if (accounts.isNotEmpty()) {
