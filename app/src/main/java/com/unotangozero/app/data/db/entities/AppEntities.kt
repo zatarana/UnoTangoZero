@@ -26,6 +26,7 @@ data class TaskEntity(
     val isRecurring: Boolean = false,
     val recurrenceType: String? = null,
     val recurrenceEndDate: Long? = null,
+    val estimatedDurationMinutes: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
