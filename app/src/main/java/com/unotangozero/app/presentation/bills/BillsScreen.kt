@@ -183,9 +183,9 @@ private fun BillFormCard(
                     FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
                 }
             }
-            OutlinedTextField(Modifier.fillMaxWidth(), form.description, onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.installmentsText, onInstallmentsChange, label = { Text("Quantidade de parcelas") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.installmentsText, onValueChange = onInstallmentsChange, label = { Text("Quantidade de parcelas") }, singleLine = true)
             CategoryPicker(
                 value = form.category,
                 expectedType = if (form.type == PlannedBillType.PAYABLE) FinancialCategoryType.EXPENSE else FinancialCategoryType.INCOME,
@@ -206,7 +206,7 @@ private fun BillFormCard(
                     }
                 }
             }
-            Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar") }
         }
     }
 }
@@ -221,7 +221,7 @@ private fun CategoryPicker(
 ) {
     val filtered = categories.filter { it.type == expectedType }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(Modifier.fillMaxWidth(), value, onCategoryChange, label = { Text("Categoria") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = value, onValueChange = onCategoryChange, label = { Text("Categoria") }, singleLine = true)
         if (filtered.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filtered, key = { it.id }) { category ->
