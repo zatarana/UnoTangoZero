@@ -193,8 +193,8 @@ private fun MovementFormCard(
                     FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
                 }
             }
-            OutlinedTextField(Modifier.fillMaxWidth(), form.description, onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
                 Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
@@ -233,7 +233,7 @@ private fun MovementFormCard(
                 }
             }
 
-            Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar movimentação") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar movimentação") }
         }
     }
 }
@@ -249,7 +249,7 @@ private fun CategoryPicker(
 ) {
     val filtered = categories.filter { it.type == expectedType }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(Modifier.fillMaxWidth(), value, onCategoryChange, label = { Text(title) }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = value, onValueChange = onCategoryChange, label = { Text(title) }, singleLine = true)
         if (filtered.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filtered, key = { it.id }) { category ->
