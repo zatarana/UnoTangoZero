@@ -36,22 +36,36 @@ class EnvelopeBudgetRepository @Inject constructor(
 
     val currentMonthSummary: Flow<MonthlyBudgetSummary> = combine(envelopes, movementRepository.movements) { envelopes, movements ->
         val month = YearMonth.now()
+        val previousMonth = month.minusMonths(1)
         val monthText = month.toString()
+        val previousMonthText = previousMonth.toString()
+
         val monthMovements = movements.filter { YearMonth.from(it.date) == month }
+        val previousMonthMovements = movements.filter { YearMonth.from(it.date) == previousMonth }
         val monthEnvelopes = envelopes.filter { it.yearMonth == monthText }
+        val previousMonthEnvelopes = envelopes.filter { it.yearMonth == previousMonthText && it.rolloverEnabled }
+
         val totalIncome = monthMovements.filter { it.type == FinancialMovementType.INCOME }.sumOf { it.amountInCents }
         val totalSpent = monthMovements.filter { it.type == FinancialMovementType.EXPENSE }.sumOf { it.amountInCents }
-        val statuses = monthEnvelopes.map { envelope ->
-            val spent = monthMovements
-                .filter { it.type == FinancialMovementType.EXPENSE && it.category?.trim()?.lowercase() == envelope.category.trim().lowercase() }
-                .sumOf { it.amountInCents }
-            BudgetEnvelopeStatus(envelope = envelope, spentAmountInCents = spent)
+
+        val rolloverByCategory = previousMonthEnvelopes.associate { previousEnvelope ->
+            val previousSpent = spentByCategory(previousMonthMovements, previousEnvelope.category)
+            val previousRemaining = previousEnvelope.allocatedAmountInCents - previousSpent
+            previousEnvelope.category.trim().lowercase() to previousRemaining.coerceAtLeast(0L)
         }
+
+        val statuses = monthEnvelopes.map { envelope ->
+            val spent = spentByCategory(monthMovements, envelope.category)
+            val rollover = rolloverByCategory[envelope.category.trim().lowercase()] ?: 0L
+            BudgetEnvelopeStatus(envelope = envelope, spentAmountInCents = spent, rolloverAmountInCents = rollover)
+        }
+
         MonthlyBudgetSummary(
             yearMonth = monthText,
             totalIncomeInCents = totalIncome,
             totalAllocatedInCents = monthEnvelopes.sumOf { it.allocatedAmountInCents },
             totalSpentInCents = totalSpent,
+            totalRolloverInCents = statuses.sumOf { it.rolloverAmountInCents },
             envelopes = statuses
         )
     }
@@ -68,6 +82,12 @@ class EnvelopeBudgetRepository @Inject constructor(
         context.envelopeBudgetDataStore.edit { preferences ->
             preferences[envelopesKey] = gson.toJson(read(preferences[envelopesKey]).filterNot { it.id == envelopeId })
         }
+    }
+
+    private fun spentByCategory(movements: List<com.unotangozero.app.domain.models.FinancialMovement>, category: String): Long {
+        return movements
+            .filter { it.type == FinancialMovementType.EXPENSE && it.category?.trim()?.lowercase() == category.trim().lowercase() }
+            .sumOf { it.amountInCents }
     }
 
     private fun read(json: String?): List<BudgetEnvelope> {
