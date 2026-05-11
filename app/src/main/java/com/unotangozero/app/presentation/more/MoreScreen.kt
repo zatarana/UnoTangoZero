@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.ViewKanban
 import androidx.compose.material3.Card
@@ -55,7 +56,8 @@ fun MoreRoute(
     onOpenGoals: () -> Unit,
     onOpenBudget: () -> Unit,
     onOpenReports: () -> Unit,
-    onOpenProjection: () -> Unit
+    onOpenProjection: () -> Unit,
+    onOpenReconciliation: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -79,6 +81,7 @@ fun MoreRoute(
         item { MoreCard(Icons.Default.Timer, "Foco", "Use Pomodoro, ciclos e registre esforço.", onOpenFocus) }
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
         item { MoreCard(Icons.Default.Payments, "Movimentações", "Cadastre receitas, despesas e transferências entre contas.", onOpenMovements) }
+        item { MoreCard(Icons.Default.Sync, "Reconciliação", "Ajuste o saldo do app para bater com o saldo real.", onOpenReconciliation) }
         item { MoreCard(Icons.Default.PieChart, "Orçamento", "Distribua receitas em envelopes mensais por categoria.", onOpenBudget) }
         item { MoreCard(Icons.Default.BarChart, "Relatórios financeiros", "Veja receitas, despesas e categorias por mês.", onOpenReports) }
         item { MoreCard(Icons.Default.BarChart, "Projeção de saldo", "Veja saldo projetado para 30, 60 e 90 dias.", onOpenProjection) }
