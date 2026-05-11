@@ -26,6 +26,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,6 +66,7 @@ fun FinancialReportsScreen(
         }
         item { MonthSelector(report = report, onPreviousMonth = onPreviousMonth, onNextMonth = onNextMonth, onCurrentMonth = onCurrentMonth) }
         item { SummaryCard(report) }
+        item { CsvExportCard(report) }
         item { Text("Gastos por categoria", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (report.categoryExpenses.isEmpty()) {
             item { Text("Nenhuma despesa com categoria neste mês.") }
@@ -114,6 +117,24 @@ private fun SummaryCard(report: MonthlyFinancialReport) {
 }
 
 @Composable
+private fun CsvExportCard(report: MonthlyFinancialReport) {
+    val clipboardManager = LocalClipboardManager.current
+    val csv = remember(report) { buildCsv(report) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Exportar CSV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Copie o relatório do mês em CSV para colar no Sheets, Excel ou bloco de notas.")
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { clipboardManager.setText(AnnotatedString(csv)) }
+            ) {
+                Text("Copiar CSV do mês")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SummaryLine(label: String, value: Long) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label)
@@ -145,6 +166,39 @@ private fun MovementReportCard(movement: FinancialMovement) {
             Text(money(movement.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
+}
+
+private fun buildCsv(report: MonthlyFinancialReport): String {
+    val builder = StringBuilder()
+    builder.appendLine("tipo;data;descricao;categoria;valor")
+    builder.appendLine("Resumo;;;Receitas;${formatCents(report.incomeInCents)}")
+    builder.appendLine("Resumo;;;Despesas;${formatCents(report.expenseInCents)}")
+    builder.appendLine("Resumo;;;Transferencias;${formatCents(report.transferInCents)}")
+    builder.appendLine("Resumo;;;Saldo do mes;${formatCents(report.balanceInCents)}")
+    report.categoryExpenses.forEach { item ->
+        builder.appendLine("Categoria;;;${escapeCsv(item.category)};${formatCents(item.amountInCents)}")
+    }
+    report.movements.forEach { movement ->
+        builder.appendLine(
+            listOf(
+                movement.type.displayName,
+                movement.date.toString(),
+                movement.description,
+                movement.category.orEmpty(),
+                formatCents(movement.amountInCents)
+            ).joinToString(";") { escapeCsv(it) }
+        )
+    }
+    return builder.toString()
+}
+
+private fun escapeCsv(value: String): String {
+    val escaped = value.replace("\"", "\"\"")
+    return if (escaped.contains(';') || escaped.contains('\n') || escaped.contains('"')) "\"$escaped\"" else escaped
+}
+
+private fun formatCents(cents: Long): String {
+    return "%.2f".format(Locale.US, cents / 100.0).replace('.', ',')
 }
 
 private fun money(cents: Long): String {
