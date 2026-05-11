@@ -111,6 +111,7 @@ private fun SummaryCard(report: MonthlyFinancialReport) {
             SummaryLine("Receitas", report.incomeInCents)
             SummaryLine("Despesas", report.expenseInCents)
             SummaryLine("Transferências", report.transferInCents)
+            SummaryLine("Ajustes", report.adjustmentInCents)
             SummaryLine("Saldo do mês", report.balanceInCents)
         }
     }
@@ -174,6 +175,7 @@ private fun buildCsv(report: MonthlyFinancialReport): String {
     builder.appendLine("Resumo;;;Receitas;${formatCents(report.incomeInCents)}")
     builder.appendLine("Resumo;;;Despesas;${formatCents(report.expenseInCents)}")
     builder.appendLine("Resumo;;;Transferencias;${formatCents(report.transferInCents)}")
+    builder.appendLine("Resumo;;;Ajustes;${formatCents(report.adjustmentInCents)}")
     builder.appendLine("Resumo;;;Saldo do mes;${formatCents(report.balanceInCents)}")
     report.categoryExpenses.forEach { item ->
         builder.appendLine("Categoria;;;${escapeCsv(item.category)};${formatCents(item.amountInCents)}")
