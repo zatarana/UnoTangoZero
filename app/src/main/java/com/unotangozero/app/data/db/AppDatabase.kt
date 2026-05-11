@@ -42,7 +42,7 @@ import com.unotangozero.app.data.db.entities.TaskEntity
         HabitLogEntity::class,
         NoteEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
