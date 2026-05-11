@@ -115,10 +115,10 @@ fun ProjectsScreen(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(Modifier.fillMaxWidth(), title, onTitleChange, label = { Text("Nome do projeto") }, singleLine = true)
-                    OutlinedTextField(Modifier.fillMaxWidth(), description, onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
+                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = title, onValueChange = onTitleChange, label = { Text("Nome do projeto") }, singleLine = true)
+                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
                     DeadlineSelector(deadline, onPreviousDeadlineDay, onNextDeadlineDay, onClearDeadline)
-                    Button(Modifier.fillMaxWidth(), onClick = onCreateProject) { Text("Criar projeto") }
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateProject) { Text("Criar projeto") }
                 }
             }
         }
@@ -141,8 +141,8 @@ fun ProjectsScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Nova seção", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(Modifier.fillMaxWidth(), sectionTitle, onSectionTitleChange, label = { Text("Cabeçalho da seção") }, singleLine = true)
-                        Button(Modifier.fillMaxWidth(), onClick = onCreateSection) { Text("Criar seção") }
+                        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = sectionTitle, onValueChange = onSectionTitleChange, label = { Text("Cabeçalho da seção") }, singleLine = true)
+                        Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateSection) { Text("Criar seção") }
                     }
                 }
             }
@@ -151,8 +151,8 @@ fun ProjectsScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Nova tarefa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         SectionPicker(selectedProject, selectedSectionId, onSelectSection)
-                        OutlinedTextField(Modifier.fillMaxWidth(), taskTitle, onTaskTitleChange, label = { Text("Tarefa do projeto") }, singleLine = true)
-                        Button(Modifier.fillMaxWidth(), onClick = onAddTask) { Text("Adicionar tarefa") }
+                        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = taskTitle, onValueChange = onTaskTitleChange, label = { Text("Tarefa do projeto") }, singleLine = true)
+                        Button(modifier = Modifier.fillMaxWidth(), onClick = onAddTask) { Text("Adicionar tarefa") }
                     }
                 }
             }
@@ -244,7 +244,7 @@ private fun ProjectHeaderCard(project: Project, onArchiveProject: (Project) -> U
             }
             project.description?.let { Text(it) }
             project.deadline?.let { Text("Prazo: ${it.format(formatter)}") }
-            LinearProgressIndicator(progress = project.progressPercent / 100f, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { project.progressPercent / 100f }, modifier = Modifier.fillMaxWidth())
             Text("${project.completedTasks}/${project.totalTasks} tarefas • ${project.progressPercent}%")
         }
     }
