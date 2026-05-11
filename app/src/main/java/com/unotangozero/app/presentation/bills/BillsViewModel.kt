@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.accounts.FinancialAccountRepository
 import com.unotangozero.app.data.bills.PlannedBillRepository
+import com.unotangozero.app.data.categories.FinancialCategoryRepository
 import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.domain.models.FinancialCategory
+import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.PlannedBill
 import com.unotangozero.app.domain.models.PlannedBillType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -39,7 +43,8 @@ data class BillsUiState(
 @HiltViewModel
 class BillsViewModel @Inject constructor(
     private val plannedBillRepository: PlannedBillRepository,
-    accountRepository: FinancialAccountRepository
+    accountRepository: FinancialAccountRepository,
+    categoryRepository: FinancialCategoryRepository
 ) : ViewModel() {
     val uiState: StateFlow<BillsUiState> = combine(
         plannedBillRepository.bills,
@@ -55,16 +60,21 @@ class BillsViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BillsUiState())
 
+    val categories: StateFlow<List<FinancialCategory>> = categoryRepository.categories
+        .map { list -> list.filter { !it.isArchived } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _form = MutableStateFlow(BillFormState())
     val form: StateFlow<BillFormState> = _form.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    fun onTypeChange(type: PlannedBillType) { _form.value = _form.value.copy(type = type) }
+    fun onTypeChange(type: PlannedBillType) { _form.value = _form.value.copy(type = type, category = "") }
     fun onDescriptionChange(value: String) { _form.value = _form.value.copy(description = value) }
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
     fun onCategoryChange(value: String) { _form.value = _form.value.copy(category = value) }
+    fun onCategorySelected(category: FinancialCategory) { _form.value = _form.value.copy(category = category.displayLabel) }
     fun onAccountChange(accountId: String?) { _form.value = _form.value.copy(selectedAccountId = accountId) }
     fun onInstallmentsChange(value: String) { _form.value = _form.value.copy(installmentsText = value.filter { it.isDigit() }.take(3)) }
     fun previousDay() { _form.value = _form.value.copy(dueDate = _form.value.dueDate.minusDays(1)) }
