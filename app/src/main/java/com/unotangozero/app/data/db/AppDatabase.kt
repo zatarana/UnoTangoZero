@@ -43,7 +43,7 @@ import com.unotangozero.app.data.db.entities.TaskEntity
         NoteEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
