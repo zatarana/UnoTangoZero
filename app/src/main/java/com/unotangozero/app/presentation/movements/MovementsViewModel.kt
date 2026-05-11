@@ -87,6 +87,20 @@ class MovementsViewModel @Inject constructor(
                     accountId = state.accountId
                 )
             }
+            FinancialMovementType.EXPENSE -> {
+                if (state.accountId == null) {
+                    _message.value = "Selecione a conta de saída."
+                    return
+                }
+                FinancialMovement(
+                    type = FinancialMovementType.EXPENSE,
+                    amountInCents = amount,
+                    date = state.date,
+                    description = state.description.trim(),
+                    category = state.category.trim().ifBlank { null },
+                    accountId = state.accountId
+                )
+            }
             FinancialMovementType.TRANSFER -> {
                 if (state.fromAccountId == null || state.toAccountId == null) {
                     _message.value = "Selecione origem e destino."
