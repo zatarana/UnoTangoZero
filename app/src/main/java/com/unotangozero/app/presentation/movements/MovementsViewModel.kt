@@ -3,9 +3,12 @@ package com.unotangozero.app.presentation.movements
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.accounts.FinancialAccountRepository
+import com.unotangozero.app.data.categories.FinancialCategoryRepository
 import com.unotangozero.app.data.finance.FinancialMovementRepository
 import com.unotangozero.app.domain.models.AccountBalance
 import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.domain.models.FinancialCategory
+import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -33,9 +37,14 @@ data class MovementFormState(
 @HiltViewModel
 class MovementsViewModel @Inject constructor(
     accountRepository: FinancialAccountRepository,
+    categoryRepository: FinancialCategoryRepository,
     private val movementRepository: FinancialMovementRepository
 ) : ViewModel() {
     val accounts: StateFlow<List<FinancialAccount>> = accountRepository.accounts
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val categories: StateFlow<List<FinancialCategory>> = categoryRepository.categories
+        .map { list -> list.filter { !it.isArchived } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val balances: StateFlow<List<AccountBalance>> = movementRepository.accountBalances
@@ -51,11 +60,12 @@ class MovementsViewModel @Inject constructor(
     val message: StateFlow<String?> = _message.asStateFlow()
 
     fun onTypeChange(type: FinancialMovementType) {
-        if (type != FinancialMovementType.ADJUSTMENT) _form.value = _form.value.copy(type = type)
+        if (type != FinancialMovementType.ADJUSTMENT) _form.value = _form.value.copy(type = type, category = "")
     }
     fun onDescriptionChange(value: String) { _form.value = _form.value.copy(description = value) }
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
     fun onCategoryChange(value: String) { _form.value = _form.value.copy(category = value) }
+    fun onCategorySelected(category: FinancialCategory) { _form.value = _form.value.copy(category = category.displayLabel) }
     fun onAccountChange(id: String?) { _form.value = _form.value.copy(accountId = id) }
     fun onFromAccountChange(id: String?) { _form.value = _form.value.copy(fromAccountId = id) }
     fun onToAccountChange(id: String?) { _form.value = _form.value.copy(toAccountId = id) }
@@ -146,6 +156,12 @@ class MovementsViewModel @Inject constructor(
     }
 
     fun clearMessage() { _message.value = null }
+
+    fun categoryTypeForCurrentMovement(): FinancialCategoryType? = when (_form.value.type) {
+        FinancialMovementType.INCOME -> FinancialCategoryType.INCOME
+        FinancialMovementType.EXPENSE -> FinancialCategoryType.EXPENSE
+        else -> null
+    }
 
     private fun parseMoneyToCents(rawValue: String): Long {
         val normalized = rawValue.trim().replace(".", "").replace(",", ".")
