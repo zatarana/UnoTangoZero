@@ -39,6 +39,7 @@ import com.unotangozero.app.presentation.agenda.AgendaRoute
 import com.unotangozero.app.presentation.backup.BackupRoute
 import com.unotangozero.app.presentation.bills.BillsRoute
 import com.unotangozero.app.presentation.budget.EnvelopeBudgetRoute
+import com.unotangozero.app.presentation.categories.FinancialCategoriesRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
@@ -69,7 +70,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -127,6 +128,7 @@ private fun TangoAppRoot() {
                         onOpenFocus = { extraDestination = ExtraDestination.FOCUS },
                         onOpenKanban = { extraDestination = ExtraDestination.KANBAN },
                         onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE },
+                        onOpenCategories = { extraDestination = ExtraDestination.CATEGORIES },
                         onOpenMovements = { extraDestination = ExtraDestination.MOVEMENTS },
                         onOpenReconciliation = { extraDestination = ExtraDestination.RECONCILIATION },
                         onOpenBills = { extraDestination = ExtraDestination.BILLS },
@@ -140,6 +142,7 @@ private fun TangoAppRoot() {
                     ExtraDestination.KANBAN -> KanbanRoute()
                     ExtraDestination.FOCUS -> FocusRoute()
                     ExtraDestination.ACCOUNTS -> AccountsRoute()
+                    ExtraDestination.CATEGORIES -> FinancialCategoriesRoute()
                     ExtraDestination.MOVEMENTS -> MovementsRoute()
                     ExtraDestination.RECONCILIATION -> ReconciliationRoute()
                     ExtraDestination.BUDGET -> EnvelopeBudgetRoute()
