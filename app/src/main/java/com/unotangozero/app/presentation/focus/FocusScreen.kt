@@ -36,14 +36,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.FocusPhase
 import com.unotangozero.app.domain.models.FocusProfile
+import com.unotangozero.app.domain.models.FocusProjectSummary
 import com.unotangozero.app.domain.models.FocusSessionLog
+import com.unotangozero.app.domain.models.Project
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun FocusRoute(viewModel: FocusViewModel = hiltViewModel()) {
     val profiles by viewModel.profiles.collectAsState()
+    val projects by viewModel.projects.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    val projectSummaries by viewModel.projectSummaries.collectAsState()
     val selectedProfileId by viewModel.selectedProfileId.collectAsState()
+    val selectedProjectId by viewModel.selectedProjectId.collectAsState()
     val taskName by viewModel.taskName.collectAsState()
     val phase by viewModel.phase.collectAsState()
     val remainingSeconds by viewModel.remainingSeconds.collectAsState()
@@ -66,9 +71,12 @@ fun FocusRoute(viewModel: FocusViewModel = hiltViewModel()) {
         SnackbarHost(hostState = snackbarHostState)
         FocusScreen(
             profiles = profiles,
+            projects = projects,
             logs = logs,
+            projectSummaries = projectSummaries,
             selectedProfile = selectedProfile,
             selectedProfileId = selectedProfileId,
+            selectedProjectId = selectedProjectId,
             taskName = taskName,
             phase = phase,
             remainingSeconds = remainingSeconds,
@@ -76,6 +84,7 @@ fun FocusRoute(viewModel: FocusViewModel = hiltViewModel()) {
             focusedSeconds = focusedSeconds,
             isRunning = isRunning,
             onSelectProfile = viewModel::selectProfile,
+            onSelectProject = viewModel::selectProject,
             onTaskNameChange = viewModel::onTaskNameChange,
             onStart = { viewModel.start(selectedProfile) },
             onPause = viewModel::pause,
@@ -90,9 +99,12 @@ fun FocusRoute(viewModel: FocusViewModel = hiltViewModel()) {
 @Composable
 fun FocusScreen(
     profiles: List<FocusProfile>,
+    projects: List<Project>,
     logs: List<FocusSessionLog>,
+    projectSummaries: List<FocusProjectSummary>,
     selectedProfile: FocusProfile?,
     selectedProfileId: String,
+    selectedProjectId: String?,
     taskName: String,
     phase: FocusPhase,
     remainingSeconds: Int,
@@ -100,6 +112,7 @@ fun FocusScreen(
     focusedSeconds: Int,
     isRunning: Boolean,
     onSelectProfile: (String) -> Unit,
+    onSelectProject: (String?) -> Unit,
     onTaskNameChange: (String) -> Unit,
     onStart: () -> Unit,
     onPause: () -> Unit,
@@ -116,7 +129,7 @@ fun FocusScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Foco", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Temporizador Pomodoro personalizável com histórico de esforço.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Temporizador Pomodoro com registro de esforço por projeto.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -131,6 +144,7 @@ fun FocusScreen(
             )
         }
 
+        item { ChipTitle("Perfil") }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(profiles, key = { it.id }) { profile ->
@@ -138,6 +152,26 @@ fun FocusScreen(
                         selected = selectedProfileId == profile.id,
                         onClick = { onSelectProfile(profile.id) },
                         label = { Text(profile.name) }
+                    )
+                }
+            }
+        }
+
+        item { ChipTitle("Projeto") }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = selectedProjectId == null,
+                        onClick = { onSelectProject(null) },
+                        label = { Text("Sem projeto") }
+                    )
+                }
+                items(projects, key = { it.id }) { project ->
+                    FilterChip(
+                        selected = selectedProjectId == project.id,
+                        onClick = { onSelectProject(project.id) },
+                        label = { Text(project.title) }
                     )
                 }
             }
@@ -160,6 +194,11 @@ fun FocusScreen(
             )
         }
 
+        if (projectSummaries.isNotEmpty()) {
+            item { Text("Tempo por projeto", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            items(projectSummaries, key = { it.projectId ?: "none" }) { summary -> ProjectSummaryCard(summary) }
+        }
+
         item { Text("Histórico recente", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
 
         if (logs.isEmpty()) {
@@ -168,6 +207,11 @@ fun FocusScreen(
             items(logs.take(10), key = { it.id }) { log -> FocusLogCard(log) }
         }
     }
+}
+
+@Composable
+private fun ChipTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable
@@ -228,12 +272,23 @@ private fun TimerCard(
 }
 
 @Composable
+private fun ProjectSummaryCard(summary: FocusProjectSummary) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(summary.projectTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("${formatMinutes(summary.totalMinutes)} • ${summary.sessionCount} sessão(ões)")
+        }
+    }
+}
+
+@Composable
 private fun FocusLogCard(log: FocusSessionLog) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm") }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(log.taskName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("${log.focusedMinutes} min • ${log.completedCycles} ciclo(s) • ${log.profileName}")
+            Text("Projeto: ${log.projectTitle ?: "Sem projeto"}", style = MaterialTheme.typography.bodySmall)
             Text(log.createdAt.format(formatter), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -243,4 +298,10 @@ private fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val secs = seconds % 60
     return "%02d:%02d".format(minutes, secs)
+}
+
+private fun formatMinutes(totalMinutes: Int): String {
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes}min" else "${minutes}min"
 }
