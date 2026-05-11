@@ -173,11 +173,12 @@ private fun MovementFormCard(
     onSave: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val selectableTypes = listOf(FinancialMovementType.INCOME, FinancialMovementType.EXPENSE, FinancialMovementType.TRANSFER)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Nova movimentação", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(FinancialMovementType.entries) { type ->
+                items(selectableTypes) { type ->
                     FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
                 }
             }
@@ -201,6 +202,9 @@ private fun MovementFormCard(
                 FinancialMovementType.TRANSFER -> {
                     AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
                     AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
+                }
+                FinancialMovementType.ADJUSTMENT -> {
+                    Text("Ajustes são criados pela tela Reconciliação.")
                 }
             }
 
@@ -227,6 +231,7 @@ private fun MovementCard(movement: FinancialMovement, accounts: List<FinancialAc
     val accountName = when (movement.type) {
         FinancialMovementType.INCOME -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
         FinancialMovementType.EXPENSE -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
+        FinancialMovementType.ADJUSTMENT -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
         FinancialMovementType.TRANSFER -> {
             val from = accounts.firstOrNull { it.id == movement.fromAccountId }?.name ?: "Origem"
             val to = accounts.firstOrNull { it.id == movement.toAccountId }?.name ?: "Destino"
