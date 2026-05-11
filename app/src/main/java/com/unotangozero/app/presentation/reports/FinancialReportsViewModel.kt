@@ -25,6 +25,7 @@ data class MonthlyFinancialReport(
     val incomeInCents: Long = 0L,
     val expenseInCents: Long = 0L,
     val transferInCents: Long = 0L,
+    val adjustmentInCents: Long = 0L,
     val balanceInCents: Long = 0L,
     val categoryExpenses: List<CategoryExpenseReport> = emptyList(),
     val movements: List<FinancialMovement> = emptyList()
@@ -44,6 +45,7 @@ class FinancialReportsViewModel @Inject constructor(
         val income = monthMovements.filter { it.type == FinancialMovementType.INCOME }.sumOf { it.amountInCents }
         val expenses = monthMovements.filter { it.type == FinancialMovementType.EXPENSE }.sumOf { it.amountInCents }
         val transfers = monthMovements.filter { it.type == FinancialMovementType.TRANSFER }.sumOf { it.amountInCents }
+        val adjustments = monthMovements.filter { it.type == FinancialMovementType.ADJUSTMENT }.sumOf { it.amountInCents }
         val categories = monthMovements
             .filter { it.type == FinancialMovementType.EXPENSE }
             .groupBy { it.category?.ifBlank { "sem categoria" } ?: "sem categoria" }
@@ -62,7 +64,8 @@ class FinancialReportsViewModel @Inject constructor(
             incomeInCents = income,
             expenseInCents = expenses,
             transferInCents = transfers,
-            balanceInCents = income - expenses,
+            adjustmentInCents = adjustments,
+            balanceInCents = income - expenses + adjustments,
             categoryExpenses = categories,
             movements = monthMovements.sortedByDescending { it.date }
         )
