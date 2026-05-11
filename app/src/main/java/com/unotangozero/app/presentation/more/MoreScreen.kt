@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.ViewKanban
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -40,7 +41,8 @@ fun MoreRoute(
     onOpenBackup: () -> Unit,
     onOpenAccounts: () -> Unit,
     onOpenProjects: () -> Unit,
-    onOpenFocus: () -> Unit
+    onOpenFocus: () -> Unit,
+    onOpenKanban: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -59,6 +61,7 @@ fun MoreRoute(
         }
 
         item { MoreCard(Icons.Default.Folder, "Projetos", "Organize tarefas por objetivo e acompanhe progresso.", onOpenProjects) }
+        item { MoreCard(Icons.Default.ViewKanban, "Kanban", "Visualize tarefas por estágio e mova entre colunas.", onOpenKanban) }
         item { MoreCard(Icons.Default.Timer, "Foco", "Use Pomodoro, ciclos e registre esforço.", onOpenFocus) }
         item { MoreCard(Icons.Default.AccountBalanceWallet, "Contas", "Cadastre contas, carteiras, investimentos e cartões.", onOpenAccounts) }
         item { MoreCard(Icons.Default.CreditCard, "Dívidas", "Controle dívidas, vencimentos e quitações.", onOpenDebts) }
