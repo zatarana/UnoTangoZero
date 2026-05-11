@@ -70,7 +70,8 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class ExtraDestination { MORE, PROJECTS, FOCUS_MODE, KANBAN, FOCUS, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
+private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS }
+private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP, PROJECTS, FOCUS_MODE, KANBAN, FOCUS }
 
 private val destinations = listOf(
     TangoDestination("Início", Icons.Default.Home),
@@ -90,6 +91,7 @@ private fun TangoAppRoot() {
     RequestNotificationPermissionOnce()
 
     var selectedIndex by remember { mutableIntStateOf(0) }
+    var financeDestination by remember { mutableStateOf(FinanceDestination.DASHBOARD) }
     var extraDestination by remember { mutableStateOf(ExtraDestination.MORE) }
 
     Scaffold(
@@ -100,7 +102,8 @@ private fun TangoAppRoot() {
                         selected = selectedIndex == index,
                         onClick = {
                             selectedIndex = index
-                            if (index != 4) extraDestination = ExtraDestination.MORE
+                            if (index == 3) financeDestination = FinanceDestination.DASHBOARD
+                            if (index == 4) extraDestination = ExtraDestination.MORE
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) }
@@ -114,7 +117,28 @@ private fun TangoAppRoot() {
                 0 -> DashboardRoute()
                 1 -> TasksRoute()
                 2 -> AgendaRoute()
-                3 -> FinanceRoute()
+                3 -> when (financeDestination) {
+                    FinanceDestination.DASHBOARD -> FinanceRoute(
+                        onOpenAccounts = { financeDestination = FinanceDestination.ACCOUNTS },
+                        onOpenMovements = { financeDestination = FinanceDestination.MOVEMENTS },
+                        onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
+                        onOpenBills = { financeDestination = FinanceDestination.BILLS },
+                        onOpenGoals = { financeDestination = FinanceDestination.GOALS },
+                        onOpenReports = { financeDestination = FinanceDestination.REPORTS },
+                        onOpenProjection = { financeDestination = FinanceDestination.PROJECTION },
+                        onOpenReconciliation = { financeDestination = FinanceDestination.RECONCILIATION },
+                        onOpenCategories = { financeDestination = FinanceDestination.CATEGORIES }
+                    )
+                    FinanceDestination.ACCOUNTS -> AccountsRoute()
+                    FinanceDestination.CATEGORIES -> FinancialCategoriesRoute()
+                    FinanceDestination.MOVEMENTS -> MovementsRoute()
+                    FinanceDestination.RECONCILIATION -> ReconciliationRoute()
+                    FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
+                    FinanceDestination.REPORTS -> FinancialReportsRoute()
+                    FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
+                    FinanceDestination.BILLS -> BillsRoute()
+                    FinanceDestination.GOALS -> SavingsGoalsRoute()
+                }
                 4 -> when (extraDestination) {
                     ExtraDestination.MORE -> MoreRoute(
                         onOpenDebts = { extraDestination = ExtraDestination.DEBTS },
@@ -123,33 +147,15 @@ private fun TangoAppRoot() {
                         onOpenNotes = { extraDestination = ExtraDestination.NOTES },
                         onOpenSettings = { extraDestination = ExtraDestination.SETTINGS },
                         onOpenBackup = { extraDestination = ExtraDestination.BACKUP },
-                        onOpenAccounts = { extraDestination = ExtraDestination.ACCOUNTS },
                         onOpenProjects = { extraDestination = ExtraDestination.PROJECTS },
                         onOpenFocus = { extraDestination = ExtraDestination.FOCUS },
                         onOpenKanban = { extraDestination = ExtraDestination.KANBAN },
-                        onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE },
-                        onOpenCategories = { extraDestination = ExtraDestination.CATEGORIES },
-                        onOpenMovements = { extraDestination = ExtraDestination.MOVEMENTS },
-                        onOpenReconciliation = { extraDestination = ExtraDestination.RECONCILIATION },
-                        onOpenBills = { extraDestination = ExtraDestination.BILLS },
-                        onOpenGoals = { extraDestination = ExtraDestination.GOALS },
-                        onOpenBudget = { extraDestination = ExtraDestination.BUDGET },
-                        onOpenReports = { extraDestination = ExtraDestination.REPORTS },
-                        onOpenProjection = { extraDestination = ExtraDestination.PROJECTION }
+                        onOpenFocusMode = { extraDestination = ExtraDestination.FOCUS_MODE }
                     )
                     ExtraDestination.PROJECTS -> ProjectsRoute()
                     ExtraDestination.FOCUS_MODE -> FocusModeRoute()
                     ExtraDestination.KANBAN -> KanbanRoute()
                     ExtraDestination.FOCUS -> FocusRoute()
-                    ExtraDestination.ACCOUNTS -> AccountsRoute()
-                    ExtraDestination.CATEGORIES -> FinancialCategoriesRoute()
-                    ExtraDestination.MOVEMENTS -> MovementsRoute()
-                    ExtraDestination.RECONCILIATION -> ReconciliationRoute()
-                    ExtraDestination.BUDGET -> EnvelopeBudgetRoute()
-                    ExtraDestination.REPORTS -> FinancialReportsRoute()
-                    ExtraDestination.PROJECTION -> FutureBalanceProjectionRoute()
-                    ExtraDestination.BILLS -> BillsRoute()
-                    ExtraDestination.GOALS -> SavingsGoalsRoute()
                     ExtraDestination.DEBTS -> DebtsRoute()
                     ExtraDestination.HABITS -> HabitsRoute()
                     ExtraDestination.SHOPPING -> ShoppingRoute()
