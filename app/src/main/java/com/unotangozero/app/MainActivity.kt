@@ -3,8 +3,6 @@ package com.unotangozero.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -27,8 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import com.unotangozero.app.presentation.agenda.AgendaRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
@@ -96,31 +93,10 @@ private fun TangoAppRoot() {
             when (selectedIndex) {
                 0 -> DashboardRoute()
                 1 -> TasksRoute()
-                2 -> PlaceholderScreen("Agenda", "Aqui ficará a visualização diária, semanal e lista de compromissos.")
+                2 -> AgendaRoute()
                 3 -> FinanceRoute()
                 4 -> NotesRoute()
             }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String, description: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
