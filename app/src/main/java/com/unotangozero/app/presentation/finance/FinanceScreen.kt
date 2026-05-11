@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,13 +30,46 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun FinanceRoute(viewModel: FinanceDashboardViewModel = hiltViewModel()) {
+fun FinanceRoute(
+    onOpenAccounts: () -> Unit,
+    onOpenMovements: () -> Unit,
+    onOpenBudget: () -> Unit,
+    onOpenBills: () -> Unit,
+    onOpenGoals: () -> Unit,
+    onOpenReports: () -> Unit,
+    onOpenProjection: () -> Unit,
+    onOpenReconciliation: () -> Unit,
+    onOpenCategories: () -> Unit,
+    viewModel: FinanceDashboardViewModel = hiltViewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
-    FinanceScreen(uiState)
+    FinanceScreen(
+        uiState = uiState,
+        onOpenAccounts = onOpenAccounts,
+        onOpenMovements = onOpenMovements,
+        onOpenBudget = onOpenBudget,
+        onOpenBills = onOpenBills,
+        onOpenGoals = onOpenGoals,
+        onOpenReports = onOpenReports,
+        onOpenProjection = onOpenProjection,
+        onOpenReconciliation = onOpenReconciliation,
+        onOpenCategories = onOpenCategories
+    )
 }
 
 @Composable
-fun FinanceScreen(uiState: FinanceDashboardUiState) {
+fun FinanceScreen(
+    uiState: FinanceDashboardUiState,
+    onOpenAccounts: () -> Unit,
+    onOpenMovements: () -> Unit,
+    onOpenBudget: () -> Unit,
+    onOpenBills: () -> Unit,
+    onOpenGoals: () -> Unit,
+    onOpenReports: () -> Unit,
+    onOpenProjection: () -> Unit,
+    onOpenReconciliation: () -> Unit,
+    onOpenCategories: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -43,30 +78,67 @@ fun FinanceScreen(uiState: FinanceDashboardUiState) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Painel central com saldo, mês atual, orçamento e próximos vencimentos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Abra a aba e resolva o essencial em um toque.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
+        item { PrimaryActionsCard(onOpenMovements, onOpenBills, onOpenBudget, onOpenAccounts) }
+        item { MoreFinanceActionsRow(onOpenReports, onOpenProjection, onOpenGoals, onOpenReconciliation, onOpenCategories) }
         item { BalanceHeroCard(uiState) }
         item { MonthSummaryCard(uiState) }
-        item { BudgetPreviewCard(uiState) }
-        item { ProjectionPreviewCard(uiState) }
+        item { BudgetPreviewCard(uiState, onOpenBudget) }
+        item { ProjectionPreviewCard(uiState, onOpenProjection) }
 
         if (uiState.overdueBills.isNotEmpty()) {
             item { SectionTitle("Vencidas") }
-            items(uiState.overdueBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
+            items(uiState.overdueBills, key = { it.id }) { bill -> BillPreviewCard(bill, onOpenBills) }
         }
 
         item { SectionTitle("Próximos 30 dias") }
         if (uiState.upcomingBills.isEmpty()) {
             item { EmptyCard("Nenhuma conta planejada para os próximos 30 dias.") }
         } else {
-            items(uiState.upcomingBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
+            items(uiState.upcomingBills, key = { it.id }) { bill -> BillPreviewCard(bill, onOpenBills) }
         }
+    }
+}
 
-        item {
-            EmptyCard("Use a aba Mais para acessar: Contas, Movimentações, Orçamento, Relatórios, Metas, Reconciliação e Projeção de saldo.")
+@Composable
+private fun PrimaryActionsCard(
+    onOpenMovements: () -> Unit,
+    onOpenBills: () -> Unit,
+    onOpenBudget: () -> Unit,
+    onOpenAccounts: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Ações rápidas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(modifier = Modifier.weight(1f), onClick = onOpenMovements) { Text("Lançar") }
+                Button(modifier = Modifier.weight(1f), onClick = onOpenBills) { Text("Conta") }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(modifier = Modifier.weight(1f), onClick = onOpenBudget) { Text("Orçamento") }
+                Button(modifier = Modifier.weight(1f), onClick = onOpenAccounts) { Text("Contas") }
+            }
         }
+    }
+}
+
+@Composable
+private fun MoreFinanceActionsRow(
+    onOpenReports: () -> Unit,
+    onOpenProjection: () -> Unit,
+    onOpenGoals: () -> Unit,
+    onOpenReconciliation: () -> Unit,
+    onOpenCategories: () -> Unit
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Button(onClick = onOpenReports) { Text("Relatórios") } }
+        item { Button(onClick = onOpenProjection) { Text("Projeção") } }
+        item { Button(onClick = onOpenGoals) { Text("Metas") } }
+        item { Button(onClick = onOpenReconciliation) { Text("Reconciliar") } }
+        item { Button(onClick = onOpenCategories) { Text("Categorias") } }
     }
 }
 
@@ -95,13 +167,13 @@ private fun MonthSummaryCard(uiState: FinanceDashboardUiState) {
 }
 
 @Composable
-private fun BudgetPreviewCard(uiState: FinanceDashboardUiState) {
+private fun BudgetPreviewCard(uiState: FinanceDashboardUiState, onOpenBudget: () -> Unit) {
     val budget = uiState.budgetSummary
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(onClick = onOpenBudget, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Orçamento", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (budget == null || budget.envelopes.isEmpty()) {
-                Text("Nenhum envelope criado para este mês.")
+                Text("Nenhum envelope criado para este mês. Toque aqui para criar.")
             } else {
                 SummaryLine("Disponível", budget.totalAvailableInCents)
                 SummaryLine("Gasto", budget.totalSpentInCents)
@@ -116,8 +188,8 @@ private fun BudgetPreviewCard(uiState: FinanceDashboardUiState) {
 }
 
 @Composable
-private fun ProjectionPreviewCard(uiState: FinanceDashboardUiState) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+private fun ProjectionPreviewCard(uiState: FinanceDashboardUiState, onOpenProjection: () -> Unit) {
+    Card(onClick = onOpenProjection, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Projeção próxima", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             SummaryLine("Impacto 30 dias", uiState.next30DaysImpactInCents)
@@ -127,9 +199,9 @@ private fun ProjectionPreviewCard(uiState: FinanceDashboardUiState) {
 }
 
 @Composable
-private fun BillPreviewCard(bill: PlannedBill) {
+private fun BillPreviewCard(bill: PlannedBill, onOpenBills: () -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(onClick = onOpenBills, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}${bill.category?.let { " • $it" } ?: ""}")
