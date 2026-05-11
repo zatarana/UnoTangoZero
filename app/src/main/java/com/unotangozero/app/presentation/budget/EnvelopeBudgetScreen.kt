@@ -151,7 +151,7 @@ private fun EnvelopeFormCard(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Novo envelope", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.category, onValueChange = onCategoryChange, label = { Text("Categoria") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
             if (categories.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories, key = { it.id }) { category ->
@@ -163,12 +163,12 @@ private fun EnvelopeFormCard(
                     }
                 }
             }
-            OutlinedTextField(Modifier.fillMaxWidth(), form.amountText, onAmountChange, label = { Text("Valor orçado") }, prefix = { Text("R$ ") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor orçado") }, prefix = { Text("R$ ") }, singleLine = true)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = form.rolloverEnabled, onCheckedChange = onRolloverChange)
                 Text("Sobra acumula para o próximo mês")
             }
-            Button(Modifier.fillMaxWidth(), onClick = onSaveEnvelope) { Text("Criar envelope") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveEnvelope) { Text("Criar envelope") }
         }
     }
 }
