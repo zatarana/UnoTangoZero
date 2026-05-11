@@ -50,6 +50,7 @@ class FinancialMovementRepository @Inject constructor(
                 when (movement.type) {
                     FinancialMovementType.INCOME -> if (movement.accountId == account.id) movement.amountInCents else 0L
                     FinancialMovementType.EXPENSE -> if (movement.accountId == account.id) -movement.amountInCents else 0L
+                    FinancialMovementType.ADJUSTMENT -> if (movement.accountId == account.id) movement.amountInCents else 0L
                     FinancialMovementType.TRANSFER -> when (account.id) {
                         movement.fromAccountId -> -movement.amountInCents
                         movement.toAccountId -> movement.amountInCents
