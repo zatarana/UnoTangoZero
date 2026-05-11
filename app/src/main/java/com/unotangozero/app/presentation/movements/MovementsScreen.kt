@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.AccountBalance
 import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.domain.models.FinancialCategory
+import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import java.text.NumberFormat
@@ -48,6 +50,7 @@ import java.util.Locale
 @Composable
 fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
     val accounts by viewModel.accounts.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val balances by viewModel.balances.collectAsState()
     val movements by viewModel.movements.collectAsState()
     val form by viewModel.form.collectAsState()
@@ -65,6 +68,7 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
         SnackbarHost(snackbarHostState)
         MovementsScreen(
             accounts = accounts.filter { !it.isArchived },
+            categories = categories,
             balances = balances,
             movements = movements,
             form = form,
@@ -72,6 +76,7 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
             onDescriptionChange = viewModel::onDescriptionChange,
             onAmountChange = viewModel::onAmountChange,
             onCategoryChange = viewModel::onCategoryChange,
+            onCategorySelected = viewModel::onCategorySelected,
             onAccountChange = viewModel::onAccountChange,
             onFromAccountChange = viewModel::onFromAccountChange,
             onToAccountChange = viewModel::onToAccountChange,
@@ -86,6 +91,7 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
 @Composable
 fun MovementsScreen(
     accounts: List<FinancialAccount>,
+    categories: List<FinancialCategory>,
     balances: List<AccountBalance>,
     movements: List<FinancialMovement>,
     form: MovementFormState,
@@ -93,6 +99,7 @@ fun MovementsScreen(
     onDescriptionChange: (String) -> Unit,
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onFromAccountChange: (String?) -> Unit,
     onToAccountChange: (String?) -> Unit,
@@ -118,11 +125,13 @@ fun MovementsScreen(
             item {
                 MovementFormCard(
                     accounts = accounts,
+                    categories = categories,
                     form = form,
                     onTypeChange = onTypeChange,
                     onDescriptionChange = onDescriptionChange,
                     onAmountChange = onAmountChange,
                     onCategoryChange = onCategoryChange,
+                    onCategorySelected = onCategorySelected,
                     onAccountChange = onAccountChange,
                     onFromAccountChange = onFromAccountChange,
                     onToAccountChange = onToAccountChange,
@@ -160,11 +169,13 @@ private fun BalancesCard(balances: List<AccountBalance>) {
 @Composable
 private fun MovementFormCard(
     accounts: List<FinancialAccount>,
+    categories: List<FinancialCategory>,
     form: MovementFormState,
     onTypeChange: (FinancialMovementType) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onAmountChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onFromAccountChange: (String?) -> Unit,
     onToAccountChange: (String?) -> Unit,
@@ -192,11 +203,25 @@ private fun MovementFormCard(
 
             when (form.type) {
                 FinancialMovementType.INCOME -> {
-                    OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria da receita") }, singleLine = true)
+                    CategoryPicker(
+                        title = "Categoria da receita",
+                        value = form.category,
+                        expectedType = FinancialCategoryType.INCOME,
+                        categories = categories,
+                        onCategoryChange = onCategoryChange,
+                        onCategorySelected = onCategorySelected
+                    )
                     AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
                 }
                 FinancialMovementType.EXPENSE -> {
-                    OutlinedTextField(Modifier.fillMaxWidth(), form.category, onCategoryChange, label = { Text("Categoria da despesa") }, singleLine = true)
+                    CategoryPicker(
+                        title = "Categoria da despesa",
+                        value = form.category,
+                        expectedType = FinancialCategoryType.EXPENSE,
+                        categories = categories,
+                        onCategoryChange = onCategoryChange,
+                        onCategorySelected = onCategorySelected
+                    )
                     AccountPicker("Conta de saída", accounts, form.accountId, onAccountChange)
                 }
                 FinancialMovementType.TRANSFER -> {
@@ -209,6 +234,32 @@ private fun MovementFormCard(
             }
 
             Button(Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar movimentação") }
+        }
+    }
+}
+
+@Composable
+private fun CategoryPicker(
+    title: String,
+    value: String,
+    expectedType: FinancialCategoryType,
+    categories: List<FinancialCategory>,
+    onCategoryChange: (String) -> Unit,
+    onCategorySelected: (FinancialCategory) -> Unit
+) {
+    val filtered = categories.filter { it.type == expectedType }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        OutlinedTextField(Modifier.fillMaxWidth(), value, onCategoryChange, label = { Text(title) }, singleLine = true)
+        if (filtered.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(filtered, key = { it.id }) { category ->
+                    FilterChip(
+                        selected = value == category.displayLabel,
+                        onClick = { onCategorySelected(category) },
+                        label = { Text(category.displayLabel) }
+                    )
+                }
+            }
         }
     }
 }
