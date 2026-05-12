@@ -60,9 +60,6 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TasksRoute(
     onOpenProjects: () -> Unit,
-    onOpenKanban: () -> Unit,
-    onOpenFocus: () -> Unit,
-    onOpenFocusMode: () -> Unit,
     viewModel: TasksViewModel = hiltViewModel()
 ) {
     val tasks by viewModel.tasks.collectAsState()
@@ -90,9 +87,6 @@ fun TasksRoute(
             selectedTag = selectedTag,
             editorState = editorState,
             onOpenProjects = onOpenProjects,
-            onOpenKanban = onOpenKanban,
-            onOpenFocus = onOpenFocus,
-            onOpenFocusMode = onOpenFocusMode,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
             onDueDateNextDay = viewModel::onDueDateNextDay,
@@ -124,9 +118,6 @@ fun TasksScreen(
     selectedTag: String?,
     editorState: TaskEditorUiState,
     onOpenProjects: () -> Unit,
-    onOpenKanban: () -> Unit,
-    onOpenFocus: () -> Unit,
-    onOpenFocusMode: () -> Unit,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
     onDueDateNextDay: () -> Unit,
@@ -166,12 +157,12 @@ fun TasksScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Lista de tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Organize o dia e use o botão + para adicionar rapidamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Visualize suas tarefas em colunas por categoria.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            item { TaskQuickActionsCard(onOpenProjects, onOpenKanban, onOpenFocus, onOpenFocusMode) }
+            item { TaskQuickActionsCard(onOpenProjects) }
 
             if (allTags.isNotEmpty()) {
                 item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
@@ -180,11 +171,11 @@ fun TasksScreen(
             if (filteredTasks.isEmpty()) {
                 item { EmptyTasksCard(hasFilter = selectedTag != null) }
             } else {
-                items(items = filteredTasks, key = { it.id }) { task ->
-                    TaskCard(
-                        task = task,
-                        estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
-                        tags = taskTags[task.id].orEmpty(),
+                item {
+                    TaskCategoryKanbanBoard(
+                        tasks = filteredTasks,
+                        taskDurations = taskDurations,
+                        taskTags = taskTags,
                         onStartEdit = onStartEdit,
                         onToggleTask = onToggleTask,
                         onDeleteTask = onDeleteTask
@@ -240,13 +231,70 @@ fun TasksScreen(
 }
 
 @Composable
-private fun TaskQuickActionsCard(onOpenProjects: () -> Unit, onOpenKanban: () -> Unit, onOpenFocus: () -> Unit, onOpenFocusMode: () -> Unit) {
+private fun TaskQuickActionsCard(onOpenProjects: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         LazyRow(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item { FilterChip(selected = false, onClick = onOpenProjects, label = { Text("Projetos") }) }
-            item { FilterChip(selected = false, onClick = onOpenKanban, label = { Text("Kanban") }) }
-            item { FilterChip(selected = false, onClick = onOpenFocus, label = { Text("Foco") }) }
-            item { FilterChip(selected = false, onClick = onOpenFocusMode, label = { Text("Modo Foco") }) }
+        }
+    }
+}
+
+@Composable
+private fun TaskCategoryKanbanBoard(
+    tasks: List<Task>,
+    taskDurations: Map<String, Int>,
+    taskTags: Map<String, List<String>>,
+    onStartEdit: (Task) -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit
+) {
+    val groupedTasks = remember(tasks) {
+        tasks.groupBy { it.category }.toSortedMap(compareBy { it.displayName })
+    }
+
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        groupedTasks.forEach { (category, categoryTasks) ->
+            item(key = category.name) {
+                TaskCategoryColumn(
+                    category = category,
+                    tasks = categoryTasks,
+                    taskDurations = taskDurations,
+                    taskTags = taskTags,
+                    onStartEdit = onStartEdit,
+                    onToggleTask = onToggleTask,
+                    onDeleteTask = onDeleteTask
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskCategoryColumn(
+    category: TaskCategory,
+    tasks: List<Task>,
+    taskDurations: Map<String, Int>,
+    taskTags: Map<String, List<String>>,
+    onStartEdit: (Task) -> Unit,
+    onToggleTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit
+) {
+    Card(
+        modifier = Modifier.width(320.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("${category.displayName} (${tasks.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            tasks.forEach { task ->
+                TaskCard(
+                    task = task,
+                    estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
+                    tags = taskTags[task.id].orEmpty(),
+                    onStartEdit = onStartEdit,
+                    onToggleTask = onToggleTask,
+                    onDeleteTask = onDeleteTask
+                )
+            }
         }
     }
 }
@@ -340,7 +388,7 @@ private fun EmptyTasksCard(hasFilter: Boolean) {
 @Composable
 private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<String>, onStartEdit: (Task) -> Unit, onToggleTask: (Task) -> Unit, onDeleteTask: (Task) -> Unit) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
             Spacer(modifier = Modifier.width(8.dp))
@@ -348,7 +396,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
                 Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
-                Text("${task.category.displayName} • ${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (tags.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) } }
                 }
