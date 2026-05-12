@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,20 +38,30 @@ fun FutureBalanceProjectionRoute(viewModel: FutureBalanceProjectionViewModel = h
 
 @Composable
 fun FutureBalanceProjectionScreen(uiState: FutureBalanceProjectionUiState) {
+    val mainHorizon = uiState.horizons.firstOrNull()
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("Projeção de saldo", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Estimativa baseada no saldo atual e nas contas planejadas abertas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Projeção", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                Text("Veja como seus vencimentos afetam o saldo futuro.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-        item { CurrentBalanceCard(uiState.currentBalanceInCents) }
-        items(uiState.horizons, key = { it.days }) { horizon -> ProjectionCard(horizon, uiState.currentBalanceInCents) }
-        item { Text("Contas futuras consideradas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+
+        item { ProjectionHeroCard(uiState.currentBalanceInCents, mainHorizon) }
+
+        if (uiState.horizons.isNotEmpty()) {
+            item { HorizonChips(uiState.horizons) }
+            item { Text("Cenários", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
+            items(uiState.horizons, key = { it.days }) { horizon -> ProjectionCard(horizon, uiState.currentBalanceInCents) }
+        }
+
+        item { Text("Contas consideradas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
         if (uiState.upcomingBills.isEmpty()) {
-            item { Text("Nenhuma conta planejada aberta futura.") }
+            item { EmptyProjectionCard("Nenhuma conta planejada aberta futura.") }
         } else {
             items(uiState.upcomingBills, key = { it.id }) { bill -> PlannedBillPreviewCard(bill) }
         }
@@ -57,11 +69,28 @@ fun FutureBalanceProjectionScreen(uiState: FutureBalanceProjectionUiState) {
 }
 
 @Composable
-private fun CurrentBalanceCard(currentBalanceInCents: Long) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Saldo atual total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(money(currentBalanceInCents), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+private fun ProjectionHeroCard(currentBalanceInCents: Long, horizon: ProjectionHorizon?) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Saldo atual", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Text(money(currentBalanceInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            if (horizon != null) {
+                SummaryLine("Impacto em ${horizon.days} dias", horizon.plannedImpactInCents)
+                SummaryLine("Saldo estimado", horizon.projectedBalanceInCents)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HorizonChips(horizons: List<ProjectionHorizon>) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(horizons, key = { it.days }) { horizon ->
+            FilterChip(
+                selected = false,
+                onClick = {},
+                label = { Text("${horizon.days} dias • ${money(horizon.projectedBalanceInCents)}") }
+            )
         }
     }
 }
@@ -72,15 +101,9 @@ private fun ProjectionCard(horizon: ProjectionHorizon, currentBalanceInCents: Lo
     val progress = (abs(horizon.projectedBalanceInCents).toFloat() / max).coerceIn(0f, 1f)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Próximos ${horizon.days} dias", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Impacto planejado")
-                Text(money(horizon.plannedImpactInCents), fontWeight = FontWeight.SemiBold)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Saldo projetado")
-                Text(money(horizon.projectedBalanceInCents), fontWeight = FontWeight.Bold)
-            }
+            Text("Próximos ${horizon.days} dias", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            SummaryLine("Impacto planejado", horizon.plannedImpactInCents)
+            SummaryLine("Saldo projetado", horizon.projectedBalanceInCents)
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             Text("${horizon.bills.size} conta(s) considerada(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -91,11 +114,26 @@ private fun ProjectionCard(horizon: ProjectionHorizon, currentBalanceInCents: Lo
 private fun PlannedBillPreviewCard(bill: PlannedBill) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}")
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}${bill.category?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(money(bill.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+private fun SummaryLine(label: String, value: Long) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(money(value), fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun EmptyProjectionCard(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
