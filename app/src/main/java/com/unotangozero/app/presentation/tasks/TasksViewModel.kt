@@ -67,6 +67,10 @@ class TasksViewModel @Inject constructor(
     fun onTitleChange(value: String) { _editorState.value = _editorState.value.copy(title = value) }
     fun onDueDatePreviousDay() { _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.minusDays(1)) }
     fun onDueDateNextDay() { _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.plusDays(1)) }
+    fun onDueDateSelected(date: LocalDate) { _editorState.value = _editorState.value.copy(dueDate = date) }
+    fun onDueDateToday() { onDueDateSelected(LocalDate.now()) }
+    fun onDueDateTomorrow() { onDueDateSelected(LocalDate.now().plusDays(1)) }
+    fun onDueDateNextWeek() { onDueDateSelected(LocalDate.now().plusWeeks(1)) }
     fun onCategoryChange(category: TaskCategory) { _editorState.value = _editorState.value.copy(category = category) }
     fun onPriorityChange(priority: Priority) { _editorState.value = _editorState.value.copy(priority = priority) }
     fun onRecurrenceTypeChange(value: RecurrenceType) { _editorState.value = _editorState.value.copy(recurrenceType = value) }
