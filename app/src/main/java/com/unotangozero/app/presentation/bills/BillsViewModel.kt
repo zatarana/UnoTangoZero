@@ -7,7 +7,6 @@ import com.unotangozero.app.data.bills.PlannedBillRepository
 import com.unotangozero.app.data.categories.FinancialCategoryRepository
 import com.unotangozero.app.domain.models.FinancialAccount
 import com.unotangozero.app.domain.models.FinancialCategory
-import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.PlannedBill
 import com.unotangozero.app.domain.models.PlannedBillType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,7 +29,8 @@ data class BillFormState(
     val category: String = "",
     val dueDate: LocalDate = LocalDate.now(),
     val selectedAccountId: String? = null,
-    val installmentsText: String = "1"
+    val installmentsText: String = "1",
+    val firstInstallmentText: String = "1"
 )
 
 data class BillsUiState(
@@ -77,13 +77,18 @@ class BillsViewModel @Inject constructor(
     fun onCategorySelected(category: FinancialCategory) { _form.value = _form.value.copy(category = category.displayLabel) }
     fun onAccountChange(accountId: String?) { _form.value = _form.value.copy(selectedAccountId = accountId) }
     fun onInstallmentsChange(value: String) { _form.value = _form.value.copy(installmentsText = value.filter { it.isDigit() }.take(3)) }
+    fun onFirstInstallmentChange(value: String) { _form.value = _form.value.copy(firstInstallmentText = value.filter { it.isDigit() }.take(3)) }
     fun previousDay() { _form.value = _form.value.copy(dueDate = _form.value.dueDate.minusDays(1)) }
     fun nextDay() { _form.value = _form.value.copy(dueDate = _form.value.dueDate.plusDays(1)) }
+    fun dueToday() { _form.value = _form.value.copy(dueDate = LocalDate.now()) }
+    fun dueNextMonth() { _form.value = _form.value.copy(dueDate = LocalDate.now().plusMonths(1)) }
+    fun dueInThreeMonths() { _form.value = _form.value.copy(dueDate = LocalDate.now().plusMonths(3)) }
 
     fun saveBill() {
         val state = _form.value
         val amount = parseMoneyToCents(state.amountText)
-        val installments = (state.installmentsText.toIntOrNull() ?: 1).coerceIn(1, 120)
+        val totalInstallments = (state.installmentsText.toIntOrNull() ?: 1).coerceIn(1, 120)
+        val firstInstallment = (state.firstInstallmentText.toIntOrNull() ?: 1).coerceIn(1, totalInstallments)
         if (state.description.trim().isBlank()) {
             _message.value = "Digite uma descrição."
             return
@@ -93,9 +98,10 @@ class BillsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val results = (1..installments).map { index ->
-                val description = if (installments > 1) {
-                    "${state.description.trim()} ($index/$installments)"
+            val installmentsToCreate = firstInstallment..totalInstallments
+            val results = installmentsToCreate.mapIndexed { offset, installmentNumber ->
+                val description = if (totalInstallments > 1) {
+                    "${state.description.trim()} ($installmentNumber/$totalInstallments)"
                 } else {
                     state.description.trim()
                 }
@@ -104,7 +110,7 @@ class BillsViewModel @Inject constructor(
                         type = state.type,
                         description = description,
                         amountInCents = amount,
-                        dueDate = state.dueDate.plusMonths((index - 1).toLong()),
+                        dueDate = state.dueDate.plusMonths(offset.toLong()),
                         category = state.category.trim().ifBlank { null }
                     )
                 )
@@ -112,7 +118,8 @@ class BillsViewModel @Inject constructor(
             val failure = results.firstOrNull { it.isFailure }?.exceptionOrNull()
             if (failure == null) {
                 _form.value = BillFormState(type = state.type)
-                _message.value = if (installments > 1) "$installments parcelas criadas." else "Conta planejada salva."
+                val created = totalInstallments - firstInstallment + 1
+                _message.value = if (totalInstallments > 1) "$created parcela(s) criada(s), começando da $firstInstallment/$totalInstallments." else "Conta planejada salva."
             } else {
                 _message.value = failure.message ?: "Não foi possível salvar todas as parcelas."
             }
