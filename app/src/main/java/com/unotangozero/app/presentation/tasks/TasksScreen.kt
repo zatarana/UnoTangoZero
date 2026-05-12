@@ -24,6 +24,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -36,6 +38,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +58,9 @@ import com.unotangozero.app.domain.enums.Priority
 import com.unotangozero.app.domain.enums.RecurrenceType
 import com.unotangozero.app.domain.enums.TaskCategory
 import com.unotangozero.app.domain.models.Task
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -90,6 +96,7 @@ fun TasksRoute(
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
             onDueDateNextDay = viewModel::onDueDateNextDay,
+            onDueDateSelected = viewModel::onDueDateSelected,
             onDueDateToday = viewModel::onDueDateToday,
             onDueDateTomorrow = viewModel::onDueDateTomorrow,
             onDueDateNextWeek = viewModel::onDueDateNextWeek,
@@ -121,6 +128,7 @@ fun TasksScreen(
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
     onDueDateNextDay: () -> Unit,
+    onDueDateSelected: (LocalDate) -> Unit,
     onDueDateToday: () -> Unit,
     onDueDateTomorrow: () -> Unit,
     onDueDateNextWeek: () -> Unit,
@@ -208,6 +216,7 @@ fun TasksScreen(
                 onTitleChange = onTitleChange,
                 onDueDatePreviousDay = onDueDatePreviousDay,
                 onDueDateNextDay = onDueDateNextDay,
+                onDueDateSelected = onDueDateSelected,
                 onDueDateToday = onDueDateToday,
                 onDueDateTomorrow = onDueDateTomorrow,
                 onDueDateNextWeek = onDueDateNextWeek,
@@ -313,6 +322,7 @@ private fun TaskEditorSheet(
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
     onDueDateNextDay: () -> Unit,
+    onDueDateSelected: (LocalDate) -> Unit,
     onDueDateToday: () -> Unit,
     onDueDateTomorrow: () -> Unit,
     onDueDateNextWeek: () -> Unit,
@@ -328,7 +338,7 @@ private fun TaskEditorSheet(
     Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(if (state.isEditing) "Editar tarefa" else "Nova tarefa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Digite uma tarefa...") }, singleLine = true)
-        DateSelector(state.dueDate, onDueDatePreviousDay, onDueDateNextDay, onDueDateToday, onDueDateTomorrow, onDueDateNextWeek)
+        DateSelector(state.dueDate, onDueDatePreviousDay, onDueDateNextDay, onDueDateSelected, onDueDateToday, onDueDateTomorrow, onDueDateNextWeek)
         DurationFields(state, onEstimatedHoursChange, onEstimatedMinutesChange)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.tagsText, onValueChange = onTagsChange, label = { Text("Tags") }, placeholder = { Text("Ex: trabalho, casa, estudo") }, singleLine = true)
         ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
@@ -348,19 +358,58 @@ private fun DurationFields(state: TaskEditorUiState, onEstimatedHoursChange: (St
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateSelector(date: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onTomorrow: () -> Unit, onNextWeek: () -> Unit) {
+private fun DateSelector(
+    date: LocalDate,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
+    onToday: () -> Unit,
+    onTomorrow: () -> Unit,
+    onNextWeek: () -> Unit
+) {
+    var isCalendarOpen by remember { mutableStateOf(false) }
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date.toEpochMillis())
+
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
-            Text(date.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
+        Text("Data", style = MaterialTheme.typography.labelLarge)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
+                    Button(onClick = { isCalendarOpen = true }) { Text(date.format(formatter)) }
+                    IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
+                    item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
+                    item { FilterChip(selected = false, onClick = onNextWeek, label = { Text("Próx. semana") }) }
+                }
+            }
         }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
-            item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
-            item { FilterChip(selected = false, onClick = onNextWeek, label = { Text("Próx. semana") }) }
+    }
+
+    if (isCalendarOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isCalendarOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis -> onDateSelected(millis.toLocalDate()) }
+                        isCalendarOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -406,6 +455,10 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
         }
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun formatDuration(totalMinutes: Int): String {
     val hours = totalMinutes / 60
