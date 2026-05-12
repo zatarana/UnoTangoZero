@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -31,7 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +84,9 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
             onToAccountChange = viewModel::onToAccountChange,
             onPreviousDay = viewModel::previousDay,
             onNextDay = viewModel::nextDay,
+            onToday = viewModel::today,
+            onYesterday = viewModel::yesterday,
+            onTomorrow = viewModel::tomorrow,
             onSave = viewModel::save,
             onDelete = viewModel::deleteMovement
         )
@@ -105,9 +110,14 @@ fun MovementsScreen(
     onToAccountChange: (String?) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onToday: () -> Unit,
+    onYesterday: () -> Unit,
+    onTomorrow: () -> Unit,
     onSave: () -> Unit,
     onDelete: (FinancialMovement) -> Unit
 ) {
+    var isFormOpen by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -115,7 +125,7 @@ fun MovementsScreen(
     ) {
         item {
             Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Cadastre receitas, despesas e transferências entre contas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Veja o histórico e abra o lançamento apenas quando for registrar algo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (accounts.isEmpty()) {
@@ -123,22 +133,33 @@ fun MovementsScreen(
         } else {
             item { BalancesCard(balances) }
             item {
-                MovementFormCard(
-                    accounts = accounts,
-                    categories = categories,
-                    form = form,
-                    onTypeChange = onTypeChange,
-                    onDescriptionChange = onDescriptionChange,
-                    onAmountChange = onAmountChange,
-                    onCategoryChange = onCategoryChange,
-                    onCategorySelected = onCategorySelected,
-                    onAccountChange = onAccountChange,
-                    onFromAccountChange = onFromAccountChange,
-                    onToAccountChange = onToAccountChange,
-                    onPreviousDay = onPreviousDay,
-                    onNextDay = onNextDay,
-                    onSave = onSave
-                )
+                if (!isFormOpen) {
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Novo lançamento") }
+                } else {
+                    MovementFormCard(
+                        accounts = accounts,
+                        categories = categories,
+                        form = form,
+                        onTypeChange = onTypeChange,
+                        onDescriptionChange = onDescriptionChange,
+                        onAmountChange = onAmountChange,
+                        onCategoryChange = onCategoryChange,
+                        onCategorySelected = onCategorySelected,
+                        onAccountChange = onAccountChange,
+                        onFromAccountChange = onFromAccountChange,
+                        onToAccountChange = onToAccountChange,
+                        onPreviousDay = onPreviousDay,
+                        onNextDay = onNextDay,
+                        onToday = onToday,
+                        onYesterday = onYesterday,
+                        onTomorrow = onTomorrow,
+                        onSave = {
+                            onSave()
+                            isFormOpen = false
+                        },
+                        onClose = { isFormOpen = false }
+                    )
+                }
             }
         }
 
@@ -181,13 +202,17 @@ private fun MovementFormCard(
     onToAccountChange: (String?) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
-    onSave: () -> Unit
+    onToday: () -> Unit,
+    onYesterday: () -> Unit,
+    onTomorrow: () -> Unit,
+    onSave: () -> Unit,
+    onClose: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    val selectableTypes = listOf(FinancialMovementType.INCOME, FinancialMovementType.EXPENSE, FinancialMovementType.TRANSFER)
+    val selectableTypes = listOf(FinancialMovementType.EXPENSE, FinancialMovementType.INCOME, FinancialMovementType.TRANSFER)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Nova movimentação", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Novo lançamento", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(selectableTypes) { type ->
                     FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
@@ -195,69 +220,52 @@ private fun MovementFormCard(
             }
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
-                IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
+                        Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
+                        IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item { FilterChip(selected = false, onClick = onYesterday, label = { Text("Ontem") }) }
+                        item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
+                        item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
+                    }
+                }
             }
 
             when (form.type) {
                 FinancialMovementType.INCOME -> {
-                    CategoryPicker(
-                        title = "Categoria da receita",
-                        value = form.category,
-                        expectedType = FinancialCategoryType.INCOME,
-                        categories = categories,
-                        onCategoryChange = onCategoryChange,
-                        onCategorySelected = onCategorySelected
-                    )
+                    CategoryPicker("Categoria da receita", form.category, FinancialCategoryType.INCOME, categories, onCategoryChange, onCategorySelected)
                     AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
                 }
                 FinancialMovementType.EXPENSE -> {
-                    CategoryPicker(
-                        title = "Categoria da despesa",
-                        value = form.category,
-                        expectedType = FinancialCategoryType.EXPENSE,
-                        categories = categories,
-                        onCategoryChange = onCategoryChange,
-                        onCategorySelected = onCategorySelected
-                    )
+                    CategoryPicker("Categoria da despesa", form.category, FinancialCategoryType.EXPENSE, categories, onCategoryChange, onCategorySelected)
                     AccountPicker("Conta de saída", accounts, form.accountId, onAccountChange)
                 }
                 FinancialMovementType.TRANSFER -> {
                     AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
                     AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
                 }
-                FinancialMovementType.ADJUSTMENT -> {
-                    Text("Ajustes são criados pela tela Reconciliação.")
-                }
+                FinancialMovementType.ADJUSTMENT -> Text("Ajustes são criados pela tela Reconciliação.")
             }
 
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar movimentação") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar lançamento") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
     }
 }
 
 @Composable
-private fun CategoryPicker(
-    title: String,
-    value: String,
-    expectedType: FinancialCategoryType,
-    categories: List<FinancialCategory>,
-    onCategoryChange: (String) -> Unit,
-    onCategorySelected: (FinancialCategory) -> Unit
-) {
+private fun CategoryPicker(title: String, value: String, expectedType: FinancialCategoryType, categories: List<FinancialCategory>, onCategoryChange: (String) -> Unit, onCategorySelected: (FinancialCategory) -> Unit) {
     val filtered = categories.filter { it.type == expectedType }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = value, onValueChange = onCategoryChange, label = { Text(title) }, singleLine = true)
         if (filtered.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filtered, key = { it.id }) { category ->
-                    FilterChip(
-                        selected = value == category.displayLabel,
-                        onClick = { onCategorySelected(category) },
-                        label = { Text(category.displayLabel) }
-                    )
+                    FilterChip(selected = value == category.displayLabel, onClick = { onCategorySelected(category) }, label = { Text(category.displayLabel) })
                 }
             }
         }
@@ -269,9 +277,7 @@ private fun AccountPicker(title: String, accounts: List<FinancialAccount>, selec
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(accounts, key = { it.id }) { account ->
-                FilterChip(selected = selectedId == account.id, onClick = { onSelect(account.id) }, label = { Text(account.name) })
-            }
+            items(accounts, key = { it.id }) { account -> FilterChip(selected = selectedId == account.id, onClick = { onSelect(account.id) }, label = { Text(account.name) }) }
         }
     }
 }
@@ -280,9 +286,7 @@ private fun AccountPicker(title: String, accounts: List<FinancialAccount>, selec
 private fun MovementCard(movement: FinancialMovement, accounts: List<FinancialAccount>, onDelete: (FinancialMovement) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val accountName = when (movement.type) {
-        FinancialMovementType.INCOME -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
-        FinancialMovementType.EXPENSE -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
-        FinancialMovementType.ADJUSTMENT -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
+        FinancialMovementType.INCOME, FinancialMovementType.EXPENSE, FinancialMovementType.ADJUSTMENT -> accounts.firstOrNull { it.id == movement.accountId }?.name ?: "Conta"
         FinancialMovementType.TRANSFER -> {
             val from = accounts.firstOrNull { it.id == movement.fromAccountId }?.name ?: "Origem"
             val to = accounts.firstOrNull { it.id == movement.toAccountId }?.name ?: "Destino"
