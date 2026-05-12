@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.bills
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -19,15 +21,19 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -90,6 +96,7 @@ fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BillsScreen(
     uiState: BillsUiState,
@@ -113,78 +120,95 @@ fun BillsScreen(
     onDelete: (PlannedBill) -> Unit
 ) {
     var isFormOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Text("Contas planejadas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Veja vencimentos e abra o cadastro só quando for planejar uma conta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Contas planejadas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Acompanhe próximos vencimentos e parcelas futuras.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
-        item { SummaryCard(uiState) }
-        item {
-            if (!isFormOpen) {
-                Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Nova conta planejada") }
+            item { SummaryCard(uiState) }
+
+            item { Text("Lista", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
+            if (uiState.bills.isEmpty()) {
+                item { EmptyCard("Nenhuma conta planejada cadastrada. Toque no + para criar uma.") }
             } else {
-                BillFormCard(
-                    accounts = uiState.accounts,
-                    categories = categories,
-                    form = form,
-                    onTypeChange = onTypeChange,
-                    onDescriptionChange = onDescriptionChange,
-                    onAmountChange = onAmountChange,
-                    onCategoryChange = onCategoryChange,
-                    onCategorySelected = onCategorySelected,
-                    onAccountChange = onAccountChange,
-                    onInstallmentsChange = onInstallmentsChange,
-                    onFirstInstallmentChange = onFirstInstallmentChange,
-                    onPreviousDay = onPreviousDay,
-                    onNextDay = onNextDay,
-                    onDueToday = onDueToday,
-                    onDueNextMonth = onDueNextMonth,
-                    onDueInThreeMonths = onDueInThreeMonths,
-                    onSave = {
-                        onSave()
-                        isFormOpen = false
-                    },
-                    onClose = { isFormOpen = false }
-                )
+                items(uiState.bills, key = { it.id }) { bill ->
+                    BillCard(bill = bill, accounts = uiState.accounts, onMarkAsPaid = onMarkAsPaid, onDelete = onDelete)
+                }
             }
         }
 
-        item { Text("Lista", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (uiState.bills.isEmpty()) {
-            item { Text("Nenhuma conta planejada cadastrada.") }
-        } else {
-            items(uiState.bills, key = { it.id }) { bill ->
-                BillCard(bill = bill, accounts = uiState.accounts, onMarkAsPaid = onMarkAsPaid, onDelete = onDelete)
-            }
+        FloatingActionButton(
+            onClick = { isFormOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nova conta planejada")
+        }
+    }
+
+    if (isFormOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isFormOpen = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            BillFormSheet(
+                accounts = uiState.accounts,
+                categories = categories,
+                form = form,
+                onTypeChange = onTypeChange,
+                onDescriptionChange = onDescriptionChange,
+                onAmountChange = onAmountChange,
+                onCategoryChange = onCategoryChange,
+                onCategorySelected = onCategorySelected,
+                onAccountChange = onAccountChange,
+                onInstallmentsChange = onInstallmentsChange,
+                onFirstInstallmentChange = onFirstInstallmentChange,
+                onPreviousDay = onPreviousDay,
+                onNextDay = onNextDay,
+                onDueToday = onDueToday,
+                onDueNextMonth = onDueNextMonth,
+                onDueInThreeMonths = onDueInThreeMonths,
+                onSave = {
+                    onSave()
+                    isFormOpen = false
+                },
+                onClose = { isFormOpen = false }
+            )
         }
     }
 }
 
 @Composable
 private fun SummaryCard(uiState: BillsUiState) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Próximos vencimentos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Próximos vencimentos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Próximos 7 dias")
-                Text(money(uiState.dueNext7Days), fontWeight = FontWeight.SemiBold)
+                Text("Próximos 7 dias", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(money(uiState.dueNext7Days), fontWeight = FontWeight.Bold)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Próximos 30 dias")
-                Text(money(uiState.dueNext30Days), fontWeight = FontWeight.SemiBold)
+                Text("Próximos 30 dias", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(money(uiState.dueNext30Days), fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-private fun BillFormCard(
+private fun BillFormSheet(
     accounts: List<FinancialAccount>,
     categories: List<FinancialCategory>,
     form: BillFormState,
@@ -205,53 +229,51 @@ private fun BillFormCard(
     onClose: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Nova conta planejada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(PlannedBillType.entries) { type ->
-                    FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
-                }
+    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Nova conta planejada", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(PlannedBillType.entries) { type ->
+                FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
             }
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = form.firstInstallmentText, onValueChange = onFirstInstallmentChange, label = { Text("Começar na parcela") }, singleLine = true)
-                OutlinedTextField(modifier = Modifier.weight(1f), value = form.installmentsText, onValueChange = onInstallmentsChange, label = { Text("Total") }, singleLine = true)
-            }
-            Text("Ex.: se já pagou 3 de 12, use começar na parcela 4 e total 12.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            CategoryPicker(
-                value = form.category,
-                expectedType = if (form.type == PlannedBillType.PAYABLE) FinancialCategoryType.EXPENSE else FinancialCategoryType.INCOME,
-                categories = categories,
-                onCategoryChange = onCategoryChange,
-                onCategorySelected = onCategorySelected
-            )
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
-                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                        Text("Primeiro vencimento registrado: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
-                        IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
-                    }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { FilterChip(selected = false, onClick = onDueToday, label = { Text("Hoje") }) }
-                        item { FilterChip(selected = false, onClick = onDueNextMonth, label = { Text("Mês que vem") }) }
-                        item { FilterChip(selected = false, onClick = onDueInThreeMonths, label = { Text("Daqui 3 meses") }) }
-                    }
-                }
-            }
-            if (accounts.isNotEmpty()) {
-                Text("Conta usada ao quitar/receber", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(accounts, key = { it.id }) { account ->
-                        FilterChip(selected = form.selectedAccountId == account.id, onClick = { onAccountChange(account.id) }, label = { Text(account.name) })
-                    }
-                }
-            }
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar parcelas futuras") }
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(modifier = Modifier.weight(1f), value = form.firstInstallmentText, onValueChange = onFirstInstallmentChange, label = { Text("Começar na") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.weight(1f), value = form.installmentsText, onValueChange = onInstallmentsChange, label = { Text("Total") }, singleLine = true)
+        }
+        Text("Ex.: já pagou 3 de 12? Comece na 4 e total 12.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        CategoryPicker(
+            value = form.category,
+            expectedType = if (form.type == PlannedBillType.PAYABLE) FinancialCategoryType.EXPENSE else FinancialCategoryType.INCOME,
+            categories = categories,
+            onCategoryChange = onCategoryChange,
+            onCategorySelected = onCategorySelected
+        )
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
+                    Text("Primeiro vencimento: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
+                    IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { FilterChip(selected = false, onClick = onDueToday, label = { Text("Hoje") }) }
+                    item { FilterChip(selected = false, onClick = onDueNextMonth, label = { Text("Mês que vem") }) }
+                    item { FilterChip(selected = false, onClick = onDueInThreeMonths, label = { Text("Daqui 3 meses") }) }
+                }
+            }
+        }
+        if (accounts.isNotEmpty()) {
+            Text("Conta usada ao quitar/receber", style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(accounts, key = { it.id }) { account ->
+                    FilterChip(selected = form.selectedAccountId == account.id, onClick = { onAccountChange(account.id) }, label = { Text(account.name) })
+                }
+            }
+        }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar parcelas futuras") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
 }
 
@@ -281,13 +303,14 @@ private fun BillCard(bill: PlannedBill, accounts: List<FinancialAccount>, onMark
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val accountName = bill.accountId?.let { id -> accounts.firstOrNull { it.id == id }?.name }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)} • ${money(bill.amountInCents)}")
+                Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 bill.category?.let { AssistChip(onClick = {}, label = { Text(it) }) }
+                Text(money(bill.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 if (bill.isPaid) {
-                    Text("Quitado em ${bill.paidAt?.format(formatter) ?: "-"}${accountName?.let { " • $it" } ?: ""}")
+                    Text("Quitado em ${bill.paidAt?.format(formatter) ?: "-"}${accountName?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (!bill.isPaid) {
@@ -295,6 +318,13 @@ private fun BillCard(bill: PlannedBill, accounts: List<FinancialAccount>, onMark
             }
             IconButton(onClick = { onDelete(bill) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir") }
         }
+    }
+}
+
+@Composable
+private fun EmptyCard(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
