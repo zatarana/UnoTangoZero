@@ -74,8 +74,12 @@ fun BillsRoute(viewModel: BillsViewModel = hiltViewModel()) {
             onCategorySelected = viewModel::onCategorySelected,
             onAccountChange = viewModel::onAccountChange,
             onInstallmentsChange = viewModel::onInstallmentsChange,
+            onFirstInstallmentChange = viewModel::onFirstInstallmentChange,
             onPreviousDay = viewModel::previousDay,
             onNextDay = viewModel::nextDay,
+            onDueToday = viewModel::dueToday,
+            onDueNextMonth = viewModel::dueNextMonth,
+            onDueInThreeMonths = viewModel::dueInThreeMonths,
             onSave = viewModel::saveBill,
             onMarkAsPaid = viewModel::markAsPaid,
             onDelete = viewModel::deleteBill
@@ -95,8 +99,12 @@ fun BillsScreen(
     onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onInstallmentsChange: (String) -> Unit,
+    onFirstInstallmentChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onDueToday: () -> Unit,
+    onDueNextMonth: () -> Unit,
+    onDueInThreeMonths: () -> Unit,
     onSave: () -> Unit,
     onMarkAsPaid: (PlannedBill) -> Unit,
     onDelete: (PlannedBill) -> Unit
@@ -108,7 +116,7 @@ fun BillsScreen(
     ) {
         item {
             Text("Contas planejadas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Controle contas a pagar e a receber, gerando movimentações ao quitar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Cadastre vencimentos futuros, parcelas restantes e contas recorrentes sem retrabalho.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         item { SummaryCard(uiState) }
@@ -124,8 +132,12 @@ fun BillsScreen(
                 onCategorySelected = onCategorySelected,
                 onAccountChange = onAccountChange,
                 onInstallmentsChange = onInstallmentsChange,
+                onFirstInstallmentChange = onFirstInstallmentChange,
                 onPreviousDay = onPreviousDay,
                 onNextDay = onNextDay,
+                onDueToday = onDueToday,
+                onDueNextMonth = onDueNextMonth,
+                onDueInThreeMonths = onDueInThreeMonths,
                 onSave = onSave
             )
         }
@@ -170,8 +182,12 @@ private fun BillFormCard(
     onCategorySelected: (FinancialCategory) -> Unit,
     onAccountChange: (String?) -> Unit,
     onInstallmentsChange: (String) -> Unit,
+    onFirstInstallmentChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onDueToday: () -> Unit,
+    onDueNextMonth: () -> Unit,
+    onDueInThreeMonths: () -> Unit,
     onSave: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -185,7 +201,11 @@ private fun BillFormCard(
             }
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor da parcela") }, prefix = { Text("R$ ") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.installmentsText, onValueChange = onInstallmentsChange, label = { Text("Quantidade de parcelas") }, singleLine = true)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = form.firstInstallmentText, onValueChange = onFirstInstallmentChange, label = { Text("Começar na parcela") }, singleLine = true)
+                OutlinedTextField(modifier = Modifier.weight(1f), value = form.installmentsText, onValueChange = onInstallmentsChange, label = { Text("Total") }, singleLine = true)
+            }
+            Text("Ex.: se já pagou 3 de 12, use começar na parcela 4 e total 12.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             CategoryPicker(
                 value = form.category,
                 expectedType = if (form.type == PlannedBillType.PAYABLE) FinancialCategoryType.EXPENSE else FinancialCategoryType.INCOME,
@@ -193,10 +213,19 @@ private fun BillFormCard(
                 onCategoryChange = onCategoryChange,
                 onCategorySelected = onCategorySelected
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                Text("Primeiro vencimento: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
-                IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
+                        Text("Primeiro vencimento registrado: ${form.dueDate.format(formatter)}", fontWeight = FontWeight.Bold)
+                        IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item { FilterChip(selected = false, onClick = onDueToday, label = { Text("Hoje") }) }
+                        item { FilterChip(selected = false, onClick = onDueNextMonth, label = { Text("Mês que vem") }) }
+                        item { FilterChip(selected = false, onClick = onDueInThreeMonths, label = { Text("Daqui 3 meses") }) }
+                    }
+                }
             }
             if (accounts.isNotEmpty()) {
                 Text("Conta usada ao quitar/receber", style = MaterialTheme.typography.labelLarge)
@@ -206,7 +235,7 @@ private fun BillFormCard(
                     }
                 }
             }
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar") }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar parcelas futuras") }
         }
     }
 }
@@ -225,11 +254,7 @@ private fun CategoryPicker(
         if (filtered.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filtered, key = { it.id }) { category ->
-                    FilterChip(
-                        selected = value == category.displayLabel,
-                        onClick = { onCategorySelected(category) },
-                        label = { Text(category.displayLabel) }
-                    )
+                    FilterChip(selected = value == category.displayLabel, onClick = { onCategorySelected(category) }, label = { Text(category.displayLabel) })
                 }
             }
         }
@@ -237,12 +262,7 @@ private fun CategoryPicker(
 }
 
 @Composable
-private fun BillCard(
-    bill: PlannedBill,
-    accounts: List<FinancialAccount>,
-    onMarkAsPaid: (PlannedBill) -> Unit,
-    onDelete: (PlannedBill) -> Unit
-) {
+private fun BillCard(bill: PlannedBill, accounts: List<FinancialAccount>, onMarkAsPaid: (PlannedBill) -> Unit, onDelete: (PlannedBill) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val accountName = bill.accountId?.let { id -> accounts.firstOrNull { it.id == id }?.name }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
