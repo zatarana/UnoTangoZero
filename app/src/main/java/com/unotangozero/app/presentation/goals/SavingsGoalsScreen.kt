@@ -20,6 +20,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,6 +34,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.SavingsGoal
 import java.text.NumberFormat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -78,6 +84,7 @@ fun SavingsGoalsRoute(viewModel: SavingsGoalsViewModel = hiltViewModel()) {
             onHasTargetDateChange = viewModel::onHasTargetDateChange,
             onPreviousTargetDate = viewModel::previousTargetDate,
             onNextTargetDate = viewModel::nextTargetDate,
+            onTargetDateSelected = viewModel::onTargetDateSelected,
             onDepositAmountChange = viewModel::onDepositAmountChange,
             onDepositNoteChange = viewModel::onDepositNoteChange,
             onSaveGoal = viewModel::saveGoal,
@@ -98,6 +105,7 @@ fun SavingsGoalsScreen(
     onHasTargetDateChange: (Boolean) -> Unit,
     onPreviousTargetDate: () -> Unit,
     onNextTargetDate: () -> Unit,
+    onTargetDateSelected: (LocalDate) -> Unit,
     onDepositAmountChange: (String) -> Unit,
     onDepositNoteChange: (String) -> Unit,
     onSaveGoal: () -> Unit,
@@ -182,6 +190,7 @@ fun SavingsGoalsScreen(
                 onHasTargetDateChange = onHasTargetDateChange,
                 onPreviousTargetDate = onPreviousTargetDate,
                 onNextTargetDate = onNextTargetDate,
+                onTargetDateSelected = onTargetDateSelected,
                 onSaveGoal = {
                     onSaveGoal()
                     isFormOpen = false
@@ -220,6 +229,7 @@ private fun EmptyGoalsCard() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalFormSheet(
     form: SavingsGoalFormState,
@@ -229,10 +239,14 @@ private fun GoalFormSheet(
     onHasTargetDateChange: (Boolean) -> Unit,
     onPreviousTargetDate: () -> Unit,
     onNextTargetDate: () -> Unit,
+    onTargetDateSelected: (LocalDate) -> Unit,
     onSaveGoal: () -> Unit,
     onClose: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var isCalendarOpen by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = form.targetDate.toEpochMillis())
+
     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Nova meta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.name, onValueChange = onNameChange, label = { Text("Nome da meta") }, singleLine = true)
@@ -243,14 +257,37 @@ private fun GoalFormSheet(
             Text("Usar data desejada")
         }
         if (form.hasTargetDate) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPreviousTargetDate) { Icon(Icons.Default.ChevronLeft, null) }
-                Text(form.targetDate.format(formatter), fontWeight = FontWeight.Bold)
-                IconButton(onClick = onNextTargetDate) { Icon(Icons.Default.ChevronRight, null) }
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onPreviousTargetDate) { Icon(Icons.Default.ChevronLeft, null) }
+                        Button(onClick = { isCalendarOpen = true }) { Text(form.targetDate.format(formatter)) }
+                        IconButton(onClick = onNextTargetDate) { Icon(Icons.Default.ChevronRight, null) }
+                    }
+                }
             }
         }
         Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveGoal) { Text("Criar meta") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
+    }
+
+    if (isCalendarOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isCalendarOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis -> onTargetDateSelected(millis.toLocalDate()) }
+                        isCalendarOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }
 
@@ -303,6 +340,10 @@ private fun monthlyNeeded(goal: SavingsGoal): String {
     val monthly = ceil(goal.remainingAmountInCents.toDouble() / months.toDouble()).toLong()
     return money(monthly)
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun money(cents: Long): String {
     return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(cents / 100.0)
