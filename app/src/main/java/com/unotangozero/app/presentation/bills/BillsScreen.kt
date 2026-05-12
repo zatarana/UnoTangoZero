@@ -23,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -31,7 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -109,6 +112,8 @@ fun BillsScreen(
     onMarkAsPaid: (PlannedBill) -> Unit,
     onDelete: (PlannedBill) -> Unit
 ) {
+    var isFormOpen by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -116,30 +121,38 @@ fun BillsScreen(
     ) {
         item {
             Text("Contas planejadas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Cadastre vencimentos futuros, parcelas restantes e contas recorrentes sem retrabalho.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Veja vencimentos e abra o cadastro só quando for planejar uma conta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         item { SummaryCard(uiState) }
         item {
-            BillFormCard(
-                accounts = uiState.accounts,
-                categories = categories,
-                form = form,
-                onTypeChange = onTypeChange,
-                onDescriptionChange = onDescriptionChange,
-                onAmountChange = onAmountChange,
-                onCategoryChange = onCategoryChange,
-                onCategorySelected = onCategorySelected,
-                onAccountChange = onAccountChange,
-                onInstallmentsChange = onInstallmentsChange,
-                onFirstInstallmentChange = onFirstInstallmentChange,
-                onPreviousDay = onPreviousDay,
-                onNextDay = onNextDay,
-                onDueToday = onDueToday,
-                onDueNextMonth = onDueNextMonth,
-                onDueInThreeMonths = onDueInThreeMonths,
-                onSave = onSave
-            )
+            if (!isFormOpen) {
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Nova conta planejada") }
+            } else {
+                BillFormCard(
+                    accounts = uiState.accounts,
+                    categories = categories,
+                    form = form,
+                    onTypeChange = onTypeChange,
+                    onDescriptionChange = onDescriptionChange,
+                    onAmountChange = onAmountChange,
+                    onCategoryChange = onCategoryChange,
+                    onCategorySelected = onCategorySelected,
+                    onAccountChange = onAccountChange,
+                    onInstallmentsChange = onInstallmentsChange,
+                    onFirstInstallmentChange = onFirstInstallmentChange,
+                    onPreviousDay = onPreviousDay,
+                    onNextDay = onNextDay,
+                    onDueToday = onDueToday,
+                    onDueNextMonth = onDueNextMonth,
+                    onDueInThreeMonths = onDueInThreeMonths,
+                    onSave = {
+                        onSave()
+                        isFormOpen = false
+                    },
+                    onClose = { isFormOpen = false }
+                )
+            }
         }
 
         item { Text("Lista", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
@@ -188,7 +201,8 @@ private fun BillFormCard(
     onDueToday: () -> Unit,
     onDueNextMonth: () -> Unit,
     onDueInThreeMonths: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onClose: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -236,6 +250,7 @@ private fun BillFormCard(
                 }
             }
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar parcelas futuras") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
     }
 }
