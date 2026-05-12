@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
@@ -19,9 +20,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,8 +34,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.accounts.AccountsRoute
 import com.unotangozero.app.presentation.bills.BillsRoute
@@ -71,9 +77,50 @@ private val destinations = listOf(
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet)
 )
 
+private val TangoNavy = Color(0xFF071237)
+private val TangoBlue = Color(0xFF12AEEA)
+private val TangoBackground = Color(0xFFF6F6F7)
+private val TangoCard = Color(0xFFFFFFFF)
+private val TangoMuted = Color(0xFF9095A3)
+private val TangoLine = Color(0xFFE2E4EA)
+private val TangoBlueSoft = Color(0xFFE6F7FE)
+
+private val TangoColorScheme = lightColorScheme(
+    primary = TangoBlue,
+    onPrimary = Color.White,
+    primaryContainer = TangoBlueSoft,
+    onPrimaryContainer = TangoNavy,
+    secondary = TangoNavy,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFE9ECF5),
+    onSecondaryContainer = TangoNavy,
+    background = TangoBackground,
+    onBackground = TangoNavy,
+    surface = TangoCard,
+    onSurface = TangoNavy,
+    surfaceVariant = TangoCard,
+    onSurfaceVariant = TangoMuted,
+    outline = TangoLine,
+    error = Color(0xFFE45B4F),
+    onError = Color.White
+)
+
+private val TangoShapes = Shapes(
+    extraSmall = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(34.dp)
+)
+
 @Composable
 private fun TangoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = androidx.compose.material3.lightColorScheme(), typography = MaterialTheme.typography, content = content)
+    MaterialTheme(
+        colorScheme = TangoColorScheme,
+        typography = MaterialTheme.typography,
+        shapes = TangoShapes,
+        content = content
+    )
 }
 
 @Composable
@@ -86,8 +133,13 @@ private fun TangoAppRoot() {
     var openMovementFormNext by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 0.dp
+            ) {
                 destinations.forEachIndexed { index, destination ->
                     NavigationBarItem(
                         selected = selectedIndex == index,
@@ -97,7 +149,14 @@ private fun TangoAppRoot() {
                             if (index == 3) financeDestination = FinanceDestination.DASHBOARD
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) }
+                        label = { Text(destination.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
