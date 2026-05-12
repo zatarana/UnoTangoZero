@@ -50,7 +50,10 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
+fun MovementsRoute(
+    openFormInitially: Boolean = false,
+    viewModel: MovementsViewModel = hiltViewModel()
+) {
     val accounts by viewModel.accounts.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val balances by viewModel.balances.collectAsState()
@@ -69,6 +72,7 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
     Column(Modifier.fillMaxSize()) {
         SnackbarHost(snackbarHostState)
         MovementsScreen(
+            openFormInitially = openFormInitially,
             accounts = accounts.filter { !it.isArchived },
             categories = categories,
             balances = balances,
@@ -95,6 +99,7 @@ fun MovementsRoute(viewModel: MovementsViewModel = hiltViewModel()) {
 
 @Composable
 fun MovementsScreen(
+    openFormInitially: Boolean,
     accounts: List<FinancialAccount>,
     categories: List<FinancialCategory>,
     balances: List<AccountBalance>,
@@ -116,7 +121,7 @@ fun MovementsScreen(
     onSave: () -> Unit,
     onDelete: (FinancialMovement) -> Unit
 ) {
-    var isFormOpen by remember { mutableStateOf(false) }
+    var isFormOpen by remember(openFormInitially) { mutableStateOf(openFormInitially) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -125,7 +130,7 @@ fun MovementsScreen(
     ) {
         item {
             Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Veja o histórico e abra o lançamento apenas quando for registrar algo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Registre lançamentos e confira seu histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (accounts.isEmpty()) {
