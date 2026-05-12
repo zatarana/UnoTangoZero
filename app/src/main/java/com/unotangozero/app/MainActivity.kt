@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -45,7 +44,6 @@ import com.unotangozero.app.presentation.goals.SavingsGoalsRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
 import com.unotangozero.app.presentation.kanban.KanbanRoute
 import com.unotangozero.app.presentation.movements.MovementsRoute
-import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
 import com.unotangozero.app.presentation.projection.FutureBalanceProjectionRoute
 import com.unotangozero.app.presentation.reconciliation.ReconciliationRoute
@@ -70,7 +68,6 @@ private val destinations = listOf(
     TangoDestination("Metas", Icons.Default.CheckCircle),
     TangoDestination("Tarefas", Icons.Default.Event),
     TangoDestination("Rastreador", Icons.Default.MoreHoriz),
-    TangoDestination("Anotações", Icons.Default.Notes),
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet)
 )
 
@@ -96,7 +93,7 @@ private fun TangoAppRoot() {
                         onClick = {
                             selectedIndex = index
                             if (index == 1) taskDestination = TaskDestination.MAIN
-                            if (index == 4) financeDestination = FinanceDestination.DASHBOARD
+                            if (index == 3) financeDestination = FinanceDestination.DASHBOARD
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) }
@@ -121,8 +118,7 @@ private fun TangoAppRoot() {
                     TaskDestination.FOCUS -> FocusRoute()
                 }
                 2 -> HabitsRoute()
-                3 -> NotesRoute()
-                4 -> when (financeDestination) {
+                3 -> when (financeDestination) {
                     FinanceDestination.DASHBOARD -> FinanceRoute(
                         onOpenAccounts = { financeDestination = FinanceDestination.ACCOUNTS },
                         onOpenMovements = { financeDestination = FinanceDestination.MOVEMENTS },
