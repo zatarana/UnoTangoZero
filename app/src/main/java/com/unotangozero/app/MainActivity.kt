@@ -48,11 +48,8 @@ import com.unotangozero.app.presentation.bills.BillsRoute
 import com.unotangozero.app.presentation.budget.EnvelopeBudgetRoute
 import com.unotangozero.app.presentation.categories.FinancialCategoriesRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
-import com.unotangozero.app.presentation.focus.FocusRoute
-import com.unotangozero.app.presentation.focusmode.FocusModeRoute
 import com.unotangozero.app.presentation.goals.SavingsGoalsRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
-import com.unotangozero.app.presentation.kanban.KanbanRoute
 import com.unotangozero.app.presentation.movements.MovementsRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
 import com.unotangozero.app.presentation.projection.FutureBalanceProjectionRoute
@@ -71,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
-private enum class TaskDestination { MAIN, PROJECTS, FOCUS_MODE, KANBAN, FOCUS }
+private enum class TaskDestination { MAIN, PROJECTS }
 private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS }
 
 private val destinations = listOf(
@@ -181,15 +178,9 @@ private fun TangoAppRoot() {
                 0 -> SavingsGoalsRoute()
                 1 -> when (taskDestination) {
                     TaskDestination.MAIN -> TasksRoute(
-                        onOpenProjects = { taskDestination = TaskDestination.PROJECTS },
-                        onOpenKanban = { taskDestination = TaskDestination.KANBAN },
-                        onOpenFocus = { taskDestination = TaskDestination.FOCUS },
-                        onOpenFocusMode = { taskDestination = TaskDestination.FOCUS_MODE }
+                        onOpenProjects = { taskDestination = TaskDestination.PROJECTS }
                     )
                     TaskDestination.PROJECTS -> ProjectsRoute()
-                    TaskDestination.FOCUS_MODE -> FocusModeRoute()
-                    TaskDestination.KANBAN -> KanbanRoute()
-                    TaskDestination.FOCUS -> FocusRoute()
                 }
                 2 -> HabitsRoute()
                 3 -> when (financeDestination) {
