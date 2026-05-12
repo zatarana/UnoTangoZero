@@ -83,6 +83,7 @@ private fun TangoAppRoot() {
     var selectedIndex by remember { mutableIntStateOf(0) }
     var taskDestination by remember { mutableStateOf(TaskDestination.MAIN) }
     var financeDestination by remember { mutableStateOf(FinanceDestination.DASHBOARD) }
+    var openMovementFormNext by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -121,7 +122,10 @@ private fun TangoAppRoot() {
                 3 -> when (financeDestination) {
                     FinanceDestination.DASHBOARD -> FinanceRoute(
                         onOpenAccounts = { financeDestination = FinanceDestination.ACCOUNTS },
-                        onOpenMovements = { financeDestination = FinanceDestination.MOVEMENTS },
+                        onOpenMovements = {
+                            openMovementFormNext = true
+                            financeDestination = FinanceDestination.MOVEMENTS
+                        },
                         onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
                         onOpenBills = { financeDestination = FinanceDestination.BILLS },
                         onOpenGoals = { selectedIndex = 0 },
@@ -132,7 +136,7 @@ private fun TangoAppRoot() {
                     )
                     FinanceDestination.ACCOUNTS -> AccountsRoute()
                     FinanceDestination.CATEGORIES -> FinancialCategoriesRoute()
-                    FinanceDestination.MOVEMENTS -> MovementsRoute()
+                    FinanceDestination.MOVEMENTS -> MovementsRoute(openFormInitially = openMovementFormNext)
                     FinanceDestination.RECONCILIATION -> ReconciliationRoute()
                     FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
                     FinanceDestination.REPORTS -> FinancialReportsRoute()
