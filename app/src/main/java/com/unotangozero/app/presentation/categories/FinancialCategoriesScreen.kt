@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.categories
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,24 +12,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +74,7 @@ fun FinancialCategoriesRoute(viewModel: FinancialCategoriesViewModel = hiltViewM
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinancialCategoriesScreen(
     categories: List<FinancialCategory>,
@@ -75,70 +85,132 @@ fun FinancialCategoriesScreen(
     onSave: () -> Unit,
     onArchive: (FinancialCategory) -> Unit
 ) {
-    val activeCategories = categories.filter { !it.isArchived }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Text("Categorias financeiras", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Crie categorias e subcategorias para receitas e despesas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val activeCategories = remember(categories) { categories.filter { !it.isArchived } }
+    var isFormOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Categorias", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Organize receitas e despesas em grupos fáceis de encontrar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            if (activeCategories.isEmpty()) {
+                item { EmptyCategoryCard() }
+            } else {
+                FinancialCategoryType.entries.forEach { type ->
+                    val filtered = activeCategories.filter { it.type == type }
+                    if (filtered.isNotEmpty()) {
+                        item { SectionTitle(type.displayName) }
+                        items(filtered, key = { it.id }) { category ->
+                            CategoryCard(category = category, onArchive = onArchive)
+                        }
+                    }
+                }
+            }
         }
-        item {
-            CategoryFormCard(
+
+        FloatingActionButton(
+            onClick = { isFormOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nova categoria")
+        }
+    }
+
+    if (isFormOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isFormOpen = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            CategoryFormSheet(
                 form = form,
                 onNameChange = onNameChange,
                 onTypeChange = onTypeChange,
                 onParentNameChange = onParentNameChange,
-                onSave = onSave
+                onSave = {
+                    onSave()
+                    isFormOpen = false
+                },
+                onClose = { isFormOpen = false }
             )
-        }
-        item { Text("Categorias ativas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (activeCategories.isEmpty()) {
-            item { Text("Nenhuma categoria cadastrada.") }
-        } else {
-            items(activeCategories, key = { it.id }) { category ->
-                CategoryCard(category = category, onArchive = onArchive)
-            }
         }
     }
 }
 
 @Composable
-private fun CategoryFormCard(
+private fun SectionTitle(title: String) {
+    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+}
+
+@Composable
+private fun CategoryFormSheet(
     form: FinancialCategoryFormState,
     onNameChange: (String) -> Unit,
     onTypeChange: (FinancialCategoryType) -> Unit,
     onParentNameChange: (String) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onClose: () -> Unit
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Nova categoria", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(FinancialCategoryType.entries) { type ->
-                    FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
-                }
+    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Nova categoria", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(FinancialCategoryType.entries) { type ->
+                FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
             }
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.name, onValueChange = onNameChange, label = { Text("Nome") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.parentName, onValueChange = onParentNameChange, label = { Text("Categoria mãe opcional") }, placeholder = { Text("Ex: alimentação") }, singleLine = true)
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar categoria") }
         }
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = form.name,
+            onValueChange = onNameChange,
+            label = { Text("Nome") },
+            singleLine = true
+        )
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = form.parentName,
+            onValueChange = onParentNameChange,
+            label = { Text("Categoria mãe opcional") },
+            placeholder = { Text("Ex: alimentação") },
+            singleLine = true
+        )
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar categoria") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
 }
 
 @Composable
 private fun CategoryCard(category: FinancialCategory, onArchive: (FinancialCategory) -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(category.displayLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(category.displayLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                 AssistChip(onClick = {}, label = { Text(category.type.displayName) })
             }
             IconButton(onClick = { onArchive(category) }) {
                 Icon(Icons.Default.Archive, contentDescription = "Arquivar")
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyCategoryCard() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(
+            text = "Nenhuma categoria cadastrada. Toque no + para criar uma categoria.",
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
