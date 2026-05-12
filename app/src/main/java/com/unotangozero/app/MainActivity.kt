@@ -25,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.accounts.AccountsRoute
 import com.unotangozero.app.presentation.bills.BillsRoute
@@ -113,11 +117,21 @@ private val TangoShapes = Shapes(
     extraLarge = RoundedCornerShape(34.dp)
 )
 
+private val TangoTypography = Typography(
+    headlineLarge = TextStyle(color = TangoNavy, fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold),
+    headlineMedium = TextStyle(color = TangoNavy, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.ExtraBold),
+    titleLarge = TextStyle(color = TangoNavy, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold),
+    titleMedium = TextStyle(color = TangoNavy, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
+    bodyLarge = TextStyle(color = TangoNavy, fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.Normal),
+    bodyMedium = TextStyle(color = TangoNavy, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal),
+    labelLarge = TextStyle(color = TangoNavy, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
+)
+
 @Composable
 private fun TangoTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = TangoColorScheme,
-        typography = MaterialTheme.typography,
+        typography = TangoTypography,
         shapes = TangoShapes,
         content = content
     )
