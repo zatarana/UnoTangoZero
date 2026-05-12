@@ -24,7 +24,7 @@ import javax.inject.Inject
 import kotlin.math.round
 
 data class MovementFormState(
-    val type: FinancialMovementType = FinancialMovementType.INCOME,
+    val type: FinancialMovementType = FinancialMovementType.EXPENSE,
     val description: String = "",
     val amountText: String = "",
     val category: String = "",
@@ -71,6 +71,9 @@ class MovementsViewModel @Inject constructor(
     fun onToAccountChange(id: String?) { _form.value = _form.value.copy(toAccountId = id) }
     fun previousDay() { _form.value = _form.value.copy(date = _form.value.date.minusDays(1)) }
     fun nextDay() { _form.value = _form.value.copy(date = _form.value.date.plusDays(1)) }
+    fun today() { _form.value = _form.value.copy(date = LocalDate.now()) }
+    fun yesterday() { _form.value = _form.value.copy(date = LocalDate.now().minusDays(1)) }
+    fun tomorrow() { _form.value = _form.value.copy(date = LocalDate.now().plusDays(1)) }
 
     fun save() {
         val state = _form.value
