@@ -44,6 +44,7 @@ class SavingsGoalsViewModel @Inject constructor(
     fun onHasTargetDateChange(value: Boolean) { _form.value = _form.value.copy(hasTargetDate = value) }
     fun previousTargetDate() { _form.value = _form.value.copy(targetDate = _form.value.targetDate.minusDays(1)) }
     fun nextTargetDate() { _form.value = _form.value.copy(targetDate = _form.value.targetDate.plusDays(1)) }
+    fun onTargetDateSelected(date: LocalDate) { _form.value = _form.value.copy(targetDate = date, hasTargetDate = true) }
     fun onDepositAmountChange(value: String) { _form.value = _form.value.copy(depositAmountText = moneyChars(value)) }
     fun onDepositNoteChange(value: String) { _form.value = _form.value.copy(depositNote = value) }
 
