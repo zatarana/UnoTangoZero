@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.habits
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,27 +14,35 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +87,7 @@ fun HabitsRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitsScreen(
     habits: List<Habit>,
@@ -91,89 +101,126 @@ fun HabitsScreen(
     onCompleteToday: (Habit) -> Unit,
     onDeleteHabit: (Habit) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Hábitos",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Crie hábitos e registre conclusões diárias para acompanhar sua constância.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+    var isFormOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = name,
-                        onValueChange = onNameChange,
-                        label = { Text("Nome do hábito") },
-                        singleLine = true
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Rastreador", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Marque seus hábitos e acompanhe a constância.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            item { HabitSummaryCard(habits = habits) }
+
+            item {
+                Text("Hábitos ativos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            }
+
+            if (habits.isEmpty()) {
+                item { EmptyHabitsCard() }
+            } else {
+                items(items = habits, key = { it.id }) { habit ->
+                    HabitCard(
+                        habit = habit,
+                        onCompleteToday = onCompleteToday,
+                        onDeleteHabit = onDeleteHabit
                     )
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = description,
-                        onValueChange = onDescriptionChange,
-                        label = { Text("Descrição opcional") },
-                        minLines = 2
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(HabitFrequency.entries) { item ->
-                            FilterChip(
-                                selected = frequency == item,
-                                onClick = { onFrequencyChange(item) },
-                                label = { Text(item.displayName) }
-                            )
-                        }
-                    }
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onCreateHabit
-                    ) {
-                        Text("Criar hábito")
-                    }
                 }
             }
         }
 
-        item {
-            Text(
-                text = "Hábitos ativos",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+        FloatingActionButton(
+            onClick = { isFormOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Novo hábito")
+        }
+    }
+
+    if (isFormOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isFormOpen = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            HabitFormSheet(
+                name = name,
+                description = description,
+                frequency = frequency,
+                onNameChange = onNameChange,
+                onDescriptionChange = onDescriptionChange,
+                onFrequencyChange = onFrequencyChange,
+                onCreateHabit = {
+                    onCreateHabit()
+                    isFormOpen = false
+                },
+                onClose = { isFormOpen = false }
             )
         }
+    }
+}
 
-        if (habits.isEmpty()) {
-            item { EmptyHabitsCard() }
-        } else {
-            items(
-                items = habits,
-                key = { it.id }
-            ) { habit ->
-                HabitCard(
-                    habit = habit,
-                    onCompleteToday = onCompleteToday,
-                    onDeleteHabit = onDeleteHabit
+@Composable
+private fun HabitSummaryCard(habits: List<Habit>) {
+    val daily = habits.count { it.frequency == HabitFrequency.DAILY }
+    val weekly = habits.count { it.frequency == HabitFrequency.WEEKLY }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("${habits.size}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            Text("hábitos ativos • $daily diário(s) • $weekly semanal(is)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun HabitFormSheet(
+    name: String,
+    description: String,
+    frequency: HabitFrequency,
+    onNameChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onFrequencyChange: (HabitFrequency) -> Unit,
+    onCreateHabit: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Novo hábito", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = name,
+            onValueChange = onNameChange,
+            label = { Text("Nome do hábito") },
+            singleLine = true
+        )
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = description,
+            onValueChange = onDescriptionChange,
+            label = { Text("Descrição opcional") },
+            minLines = 2
+        )
+        Text("Frequência", style = MaterialTheme.typography.labelLarge)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(HabitFrequency.entries) { item ->
+                FilterChip(
+                    selected = frequency == item,
+                    onClick = { onFrequencyChange(item) },
+                    label = { Text(item.displayName) }
                 )
             }
         }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateHabit) { Text("Criar hábito") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
 }
 
@@ -183,12 +230,9 @@ private fun EmptyHabitsCard() {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text("Nenhum hábito ativo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("Crie um hábito acima para começar seu acompanhamento.", style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Nenhum hábito ativo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Toque no + para criar um hábito e iniciar seu rastreamento.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -206,35 +250,29 @@ private fun HabitCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = habit.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 habit.description?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AssistChip(onClick = {}, label = { Text(habit.frequency.displayName) })
                     Text(
-                        text = "Criado em ${habit.createdAt.format(formatter)}",
-                        modifier = Modifier.align(Alignment.CenterVertically),
+                        text = habit.createdAt.format(formatter),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
