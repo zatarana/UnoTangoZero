@@ -14,8 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -35,28 +35,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.accounts.AccountsRoute
-import com.unotangozero.app.presentation.agenda.AgendaRoute
-import com.unotangozero.app.presentation.backup.BackupRoute
 import com.unotangozero.app.presentation.bills.BillsRoute
 import com.unotangozero.app.presentation.budget.EnvelopeBudgetRoute
 import com.unotangozero.app.presentation.categories.FinancialCategoriesRoute
-import com.unotangozero.app.presentation.dashboard.DashboardRoute
-import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.focus.FocusRoute
 import com.unotangozero.app.presentation.focusmode.FocusModeRoute
 import com.unotangozero.app.presentation.goals.SavingsGoalsRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
 import com.unotangozero.app.presentation.kanban.KanbanRoute
-import com.unotangozero.app.presentation.more.MoreRoute
 import com.unotangozero.app.presentation.movements.MovementsRoute
 import com.unotangozero.app.presentation.notes.NotesRoute
 import com.unotangozero.app.presentation.projects.ProjectsRoute
 import com.unotangozero.app.presentation.projection.FutureBalanceProjectionRoute
 import com.unotangozero.app.presentation.reconciliation.ReconciliationRoute
 import com.unotangozero.app.presentation.reports.FinancialReportsRoute
-import com.unotangozero.app.presentation.settings.SettingsRoute
-import com.unotangozero.app.presentation.shopping.ShoppingRoute
 import com.unotangozero.app.presentation.tasks.TasksRoute
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -72,14 +65,13 @@ private data class TangoDestination(val label: String, val icon: ImageVector)
 
 private enum class TaskDestination { MAIN, PROJECTS, FOCUS_MODE, KANBAN, FOCUS }
 private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS }
-private enum class ExtraDestination { MORE, DEBTS, HABITS, SHOPPING, NOTES, SETTINGS, BACKUP }
 
 private val destinations = listOf(
-    TangoDestination("Início", Icons.Default.Home),
-    TangoDestination("Tarefas", Icons.Default.CheckCircle),
-    TangoDestination("Agenda", Icons.Default.Event),
-    TangoDestination("Finanças", Icons.Default.AccountBalanceWallet),
-    TangoDestination("Mais", Icons.Default.MoreHoriz)
+    TangoDestination("Metas", Icons.Default.CheckCircle),
+    TangoDestination("Tarefas", Icons.Default.Event),
+    TangoDestination("Rastreador", Icons.Default.MoreHoriz),
+    TangoDestination("Anotações", Icons.Default.Notes),
+    TangoDestination("Finanças", Icons.Default.AccountBalanceWallet)
 )
 
 @Composable
@@ -94,7 +86,6 @@ private fun TangoAppRoot() {
     var selectedIndex by remember { mutableIntStateOf(0) }
     var taskDestination by remember { mutableStateOf(TaskDestination.MAIN) }
     var financeDestination by remember { mutableStateOf(FinanceDestination.DASHBOARD) }
-    var extraDestination by remember { mutableStateOf(ExtraDestination.MORE) }
 
     Scaffold(
         bottomBar = {
@@ -105,8 +96,7 @@ private fun TangoAppRoot() {
                         onClick = {
                             selectedIndex = index
                             if (index == 1) taskDestination = TaskDestination.MAIN
-                            if (index == 3) financeDestination = FinanceDestination.DASHBOARD
-                            if (index == 4) extraDestination = ExtraDestination.MORE
+                            if (index == 4) financeDestination = FinanceDestination.DASHBOARD
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) }
@@ -117,7 +107,7 @@ private fun TangoAppRoot() {
     ) { padding ->
         Surface(modifier = Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (selectedIndex) {
-                0 -> DashboardRoute()
+                0 -> SavingsGoalsRoute()
                 1 -> when (taskDestination) {
                     TaskDestination.MAIN -> TasksRoute(
                         onOpenProjects = { taskDestination = TaskDestination.PROJECTS },
@@ -130,14 +120,15 @@ private fun TangoAppRoot() {
                     TaskDestination.KANBAN -> KanbanRoute()
                     TaskDestination.FOCUS -> FocusRoute()
                 }
-                2 -> AgendaRoute()
-                3 -> when (financeDestination) {
+                2 -> HabitsRoute()
+                3 -> NotesRoute()
+                4 -> when (financeDestination) {
                     FinanceDestination.DASHBOARD -> FinanceRoute(
                         onOpenAccounts = { financeDestination = FinanceDestination.ACCOUNTS },
                         onOpenMovements = { financeDestination = FinanceDestination.MOVEMENTS },
                         onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
                         onOpenBills = { financeDestination = FinanceDestination.BILLS },
-                        onOpenGoals = { financeDestination = FinanceDestination.GOALS },
+                        onOpenGoals = { selectedIndex = 0 },
                         onOpenReports = { financeDestination = FinanceDestination.REPORTS },
                         onOpenProjection = { financeDestination = FinanceDestination.PROJECTION },
                         onOpenReconciliation = { financeDestination = FinanceDestination.RECONCILIATION },
@@ -152,22 +143,6 @@ private fun TangoAppRoot() {
                     FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
                     FinanceDestination.BILLS -> BillsRoute()
                     FinanceDestination.GOALS -> SavingsGoalsRoute()
-                }
-                4 -> when (extraDestination) {
-                    ExtraDestination.MORE -> MoreRoute(
-                        onOpenDebts = { extraDestination = ExtraDestination.DEBTS },
-                        onOpenHabits = { extraDestination = ExtraDestination.HABITS },
-                        onOpenShopping = { extraDestination = ExtraDestination.SHOPPING },
-                        onOpenNotes = { extraDestination = ExtraDestination.NOTES },
-                        onOpenSettings = { extraDestination = ExtraDestination.SETTINGS },
-                        onOpenBackup = { extraDestination = ExtraDestination.BACKUP }
-                    )
-                    ExtraDestination.DEBTS -> DebtsRoute()
-                    ExtraDestination.HABITS -> HabitsRoute()
-                    ExtraDestination.SHOPPING -> ShoppingRoute()
-                    ExtraDestination.NOTES -> NotesRoute()
-                    ExtraDestination.SETTINGS -> SettingsRoute()
-                    ExtraDestination.BACKUP -> BackupRoute()
                 }
             }
         }
