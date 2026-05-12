@@ -101,6 +101,9 @@ fun ProjectsScreen(
     onToggleTask: (String, String) -> Unit
 ) {
     val selectedProject = projects.firstOrNull { it.id == selectedProjectId }
+    var isProjectFormOpen by remember { mutableStateOf(false) }
+    var isSectionFormOpen by remember { mutableStateOf(false) }
+    var isTaskFormOpen by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -109,17 +112,28 @@ fun ProjectsScreen(
     ) {
         item {
             Text("Projetos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Agrupe tarefas por objetivo, seções e progresso.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Acompanhe projetos primeiro; crie seções e tarefas só quando precisar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = title, onValueChange = onTitleChange, label = { Text("Nome do projeto") }, singleLine = true)
-                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
-                    DeadlineSelector(deadline, onPreviousDeadlineDay, onNextDeadlineDay, onClearDeadline)
-                    Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateProject) { Text("Criar projeto") }
-                }
+            if (!isProjectFormOpen) {
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { isProjectFormOpen = true }) { Text("Novo projeto") }
+            } else {
+                ProjectFormCard(
+                    title = title,
+                    description = description,
+                    deadline = deadline,
+                    onTitleChange = onTitleChange,
+                    onDescriptionChange = onDescriptionChange,
+                    onPreviousDeadlineDay = onPreviousDeadlineDay,
+                    onNextDeadlineDay = onNextDeadlineDay,
+                    onClearDeadline = onClearDeadline,
+                    onCreateProject = {
+                        onCreateProject()
+                        isProjectFormOpen = false
+                    },
+                    onClose = { isProjectFormOpen = false }
+                )
             }
         }
 
@@ -138,22 +152,36 @@ fun ProjectsScreen(
         } else {
             item { ProjectHeaderCard(selectedProject, onArchiveProject) }
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Nova seção", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = sectionTitle, onValueChange = onSectionTitleChange, label = { Text("Cabeçalho da seção") }, singleLine = true)
-                        Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateSection) { Text("Criar seção") }
-                    }
+                if (!isSectionFormOpen) {
+                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { isSectionFormOpen = true }) { Text("Nova seção") }
+                } else {
+                    SectionFormCard(
+                        sectionTitle = sectionTitle,
+                        onSectionTitleChange = onSectionTitleChange,
+                        onCreateSection = {
+                            onCreateSection()
+                            isSectionFormOpen = false
+                        },
+                        onClose = { isSectionFormOpen = false }
+                    )
                 }
             }
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Nova tarefa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        SectionPicker(selectedProject, selectedSectionId, onSelectSection)
-                        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = taskTitle, onValueChange = onTaskTitleChange, label = { Text("Tarefa do projeto") }, singleLine = true)
-                        Button(modifier = Modifier.fillMaxWidth(), onClick = onAddTask) { Text("Adicionar tarefa") }
-                    }
+                if (!isTaskFormOpen) {
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = { isTaskFormOpen = true }) { Text("Nova tarefa do projeto") }
+                } else {
+                    ProjectTaskFormCard(
+                        selectedProject = selectedProject,
+                        selectedSectionId = selectedSectionId,
+                        taskTitle = taskTitle,
+                        onSelectSection = onSelectSection,
+                        onTaskTitleChange = onTaskTitleChange,
+                        onAddTask = {
+                            onAddTask()
+                            isTaskFormOpen = false
+                        },
+                        onClose = { isTaskFormOpen = false }
+                    )
                 }
             }
 
@@ -168,12 +196,7 @@ fun ProjectsScreen(
                 }
 
                 items(selectedProject.sections, key = { it.id }) { section ->
-                    ProjectSectionCard(
-                        projectId = selectedProject.id,
-                        section = section,
-                        onToggleSection = onToggleSection,
-                        onToggleTask = onToggleTask
-                    )
+                    ProjectSectionCard(projectId = selectedProject.id, section = section, onToggleSection = onToggleSection, onToggleTask = onToggleTask)
                 }
             }
         }
@@ -181,14 +204,68 @@ fun ProjectsScreen(
 }
 
 @Composable
+private fun ProjectFormCard(
+    title: String,
+    description: String,
+    deadline: LocalDate?,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onPreviousDeadlineDay: () -> Unit,
+    onNextDeadlineDay: () -> Unit,
+    onClearDeadline: () -> Unit,
+    onCreateProject: () -> Unit,
+    onClose: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Novo projeto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = title, onValueChange = onTitleChange, label = { Text("Nome do projeto") }, singleLine = true)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
+            DeadlineSelector(deadline, onPreviousDeadlineDay, onNextDeadlineDay, onClearDeadline)
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateProject) { Text("Criar projeto") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
+        }
+    }
+}
+
+@Composable
+private fun SectionFormCard(sectionTitle: String, onSectionTitleChange: (String) -> Unit, onCreateSection: () -> Unit, onClose: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Nova seção", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = sectionTitle, onValueChange = onSectionTitleChange, label = { Text("Cabeçalho da seção") }, singleLine = true)
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateSection) { Text("Criar seção") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
+        }
+    }
+}
+
+@Composable
+private fun ProjectTaskFormCard(
+    selectedProject: Project,
+    selectedSectionId: String?,
+    taskTitle: String,
+    onSelectSection: (String?) -> Unit,
+    onTaskTitleChange: (String) -> Unit,
+    onAddTask: () -> Unit,
+    onClose: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Nova tarefa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            SectionPicker(selectedProject, selectedSectionId, onSelectSection)
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = taskTitle, onValueChange = onTaskTitleChange, label = { Text("Tarefa do projeto") }, singleLine = true)
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onAddTask) { Text("Adicionar tarefa") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
+        }
+    }
+}
+
+@Composable
 private fun SectionPicker(project: Project, selectedSectionId: String?, onSelectSection: (String?) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            FilterChip(selected = selectedSectionId == null, onClick = { onSelectSection(null) }, label = { Text("Sem seção") })
-        }
-        items(project.sections, key = { it.id }) { section ->
-            FilterChip(selected = selectedSectionId == section.id, onClick = { onSelectSection(section.id) }, label = { Text(section.title) })
-        }
+        item { FilterChip(selected = selectedSectionId == null, onClick = { onSelectSection(null) }, label = { Text("Sem seção") }) }
+        items(project.sections, key = { it.id }) { section -> FilterChip(selected = selectedSectionId == section.id, onClick = { onSelectSection(section.id) }, label = { Text(section.title) }) }
     }
 }
 
@@ -209,9 +286,7 @@ private fun ProjectSectionCard(projectId: String, section: ProjectSection, onTog
                 if (section.tasks.isEmpty()) {
                     Text("Nenhuma tarefa nesta seção.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    section.tasks.forEach { task ->
-                        ProjectTaskCard(projectId = projectId, task = task, onToggleTask = onToggleTask)
-                    }
+                    section.tasks.forEach { task -> ProjectTaskCard(projectId = projectId, task = task, onToggleTask = onToggleTask) }
                 }
             }
         }
@@ -255,10 +330,6 @@ private fun ProjectTaskCard(projectId: String, task: ProjectTask, onToggleTask: 
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(projectId, task.id) })
         Spacer(Modifier.width(8.dp))
-        Text(
-            task.title,
-            style = MaterialTheme.typography.titleMedium,
-            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
-        )
+        Text(task.title, style = MaterialTheme.typography.titleMedium, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
     }
 }
