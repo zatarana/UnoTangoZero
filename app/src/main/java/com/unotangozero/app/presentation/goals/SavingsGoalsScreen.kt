@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -30,7 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +97,7 @@ fun SavingsGoalsScreen(
     onAddDeposit: (SavingsGoal) -> Unit,
     onDeleteGoal: (SavingsGoal) -> Unit
 ) {
+    var isFormOpen by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -101,19 +105,27 @@ fun SavingsGoalsScreen(
     ) {
         item {
             Text("Metas financeiras", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Crie metas, acompanhe progresso e registre depósitos manuais.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Acompanhe suas metas primeiro; crie ou deposite quando precisar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
-            GoalFormCard(
-                form = form,
-                onNameChange = onNameChange,
-                onTargetAmountChange = onTargetAmountChange,
-                onCategoryChange = onCategoryChange,
-                onHasTargetDateChange = onHasTargetDateChange,
-                onPreviousTargetDate = onPreviousTargetDate,
-                onNextTargetDate = onNextTargetDate,
-                onSaveGoal = onSaveGoal
-            )
+            if (!isFormOpen) {
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Nova meta") }
+            } else {
+                GoalFormCard(
+                    form = form,
+                    onNameChange = onNameChange,
+                    onTargetAmountChange = onTargetAmountChange,
+                    onCategoryChange = onCategoryChange,
+                    onHasTargetDateChange = onHasTargetDateChange,
+                    onPreviousTargetDate = onPreviousTargetDate,
+                    onNextTargetDate = onNextTargetDate,
+                    onSaveGoal = {
+                        onSaveGoal()
+                        isFormOpen = false
+                    },
+                    onClose = { isFormOpen = false }
+                )
+            }
         }
         item { Text("Suas metas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (goals.isEmpty()) {
@@ -142,7 +154,8 @@ private fun GoalFormCard(
     onHasTargetDateChange: (Boolean) -> Unit,
     onPreviousTargetDate: () -> Unit,
     onNextTargetDate: () -> Unit,
-    onSaveGoal: () -> Unit
+    onSaveGoal: () -> Unit,
+    onClose: () -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -163,6 +176,7 @@ private fun GoalFormCard(
                 }
             }
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveGoal) { Text("Criar meta") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
     }
 }
@@ -176,6 +190,7 @@ private fun GoalCard(
     onAddDeposit: (SavingsGoal) -> Unit,
     onDeleteGoal: (SavingsGoal) -> Unit
 ) {
+    var isDepositOpen by remember { mutableStateOf(false) }
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -189,13 +204,19 @@ private fun GoalCard(
             LinearProgressIndicator(progress = { (goal.progressPercentage / 100.0).toFloat() }, modifier = Modifier.fillMaxWidth())
             Text("${money(goal.currentAmountInCents)} de ${money(goal.targetAmountInCents)} (${goal.progressPercentage.toInt()}%)")
             Text("Faltam ${money(goal.remainingAmountInCents)}")
-            goal.targetDate?.let {
-                Text("Data desejada: ${it.format(formatter)} • ${monthlyNeeded(goal)} por mês")
-            }
+            goal.targetDate?.let { Text("Data desejada: ${it.format(formatter)} • ${monthlyNeeded(goal)} por mês") }
             if (!goal.isCompleted) {
-                OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositAmountText, onValueChange = onDepositAmountChange, label = { Text("Depósito") }, prefix = { Text("R$ ") }, singleLine = true)
-                OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositNote, onValueChange = onDepositNoteChange, label = { Text("Observação") }, singleLine = true)
-                Button(modifier = Modifier.fillMaxWidth(), onClick = { onAddDeposit(goal) }) { Text("Registrar depósito") }
+                if (!isDepositOpen) {
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = { isDepositOpen = true }) { Text("Registrar depósito") }
+                } else {
+                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositAmountText, onValueChange = onDepositAmountChange, label = { Text("Depósito") }, prefix = { Text("R$ ") }, singleLine = true)
+                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.depositNote, onValueChange = onDepositNoteChange, label = { Text("Observação") }, singleLine = true)
+                    Button(modifier = Modifier.fillMaxWidth(), onClick = {
+                        onAddDeposit(goal)
+                        isDepositOpen = false
+                    }) { Text("Salvar depósito") }
+                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { isDepositOpen = false }) { Text("Fechar") }
+                }
             } else {
                 Text("Meta concluída", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
