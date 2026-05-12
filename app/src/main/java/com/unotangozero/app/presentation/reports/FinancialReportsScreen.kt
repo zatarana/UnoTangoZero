@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.reports
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,20 +11,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -48,6 +57,7 @@ fun FinancialReportsRoute(viewModel: FinancialReportsViewModel = hiltViewModel()
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinancialReportsScreen(
     report: MonthlyFinancialReport,
@@ -55,29 +65,64 @@ fun FinancialReportsScreen(
     onNextMonth: () -> Unit,
     onCurrentMonth: () -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Text("Relatórios financeiros", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Resumo mensal, gastos por categoria e movimentações do período.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    var isExportOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Relatórios", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Resumo do mês, categorias e histórico em uma visão limpa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            item { MonthSelector(report = report, onPreviousMonth = onPreviousMonth, onNextMonth = onNextMonth, onCurrentMonth = onCurrentMonth) }
+            item { SummaryHeroCard(report) }
+
+            item { Text("Gastos por categoria", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
+            if (report.categoryExpenses.isEmpty()) {
+                item { EmptyReportCard("Nenhuma despesa com categoria neste mês.") }
+            } else {
+                items(report.categoryExpenses, key = { it.category }) { item -> CategoryCard(item) }
+            }
+
+            item { Text("Movimentações do mês", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
+            if (report.movements.isEmpty()) {
+                item { EmptyReportCard("Nenhuma movimentação neste mês.") }
+            } else {
+                items(report.movements, key = { it.id }) { movement -> MovementReportCard(movement) }
+            }
         }
-        item { MonthSelector(report = report, onPreviousMonth = onPreviousMonth, onNextMonth = onNextMonth, onCurrentMonth = onCurrentMonth) }
-        item { SummaryCard(report) }
-        item { CsvExportCard(report) }
-        item { Text("Gastos por categoria", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (report.categoryExpenses.isEmpty()) {
-            item { Text("Nenhuma despesa com categoria neste mês.") }
-        } else {
-            items(report.categoryExpenses, key = { it.category }) { item -> CategoryCard(item) }
+
+        FloatingActionButton(
+            onClick = { isExportOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Ações do relatório")
         }
-        item { Text("Movimentações do mês", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (report.movements.isEmpty()) {
-            item { Text("Nenhuma movimentação neste mês.") }
-        } else {
-            items(report.movements, key = { it.id }) { movement -> MovementReportCard(movement) }
+    }
+
+    if (isExportOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { isExportOpen = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            ReportActionsSheet(
+                report = report,
+                onCurrentMonth = {
+                    onCurrentMonth()
+                    isExportOpen = false
+                },
+                onClose = { isExportOpen = false }
+            )
         }
     }
 }
@@ -94,9 +139,9 @@ private fun MonthSelector(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPreviousMonth) { Icon(Icons.Default.ChevronLeft, contentDescription = "Mês anterior") }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Button(onClick = onCurrentMonth) { Text("Mês atual") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                Text("Toque nas setas para navegar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onNextMonth) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo mês") }
         }
@@ -104,55 +149,67 @@ private fun MonthSelector(
 }
 
 @Composable
-private fun SummaryCard(report: MonthlyFinancialReport) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            SummaryLine("Receitas", report.incomeInCents)
-            SummaryLine("Despesas", report.expenseInCents)
+private fun SummaryHeroCard(report: MonthlyFinancialReport) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Saldo do mês", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Text(money(report.balanceInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniReportCard(modifier = Modifier.weight(1f), title = "Receitas", value = report.incomeInCents)
+                MiniReportCard(modifier = Modifier.weight(1f), title = "Despesas", value = report.expenseInCents)
+            }
             SummaryLine("Transferências", report.transferInCents)
             SummaryLine("Ajustes", report.adjustmentInCents)
-            SummaryLine("Saldo do mês", report.balanceInCents)
         }
     }
 }
 
 @Composable
-private fun CsvExportCard(report: MonthlyFinancialReport) {
+private fun MiniReportCard(modifier: Modifier = Modifier, title: String, value: Long) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(money(value), fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+@Composable
+private fun ReportActionsSheet(report: MonthlyFinancialReport, onCurrentMonth: () -> Unit, onClose: () -> Unit) {
     val clipboardManager = LocalClipboardManager.current
     val csv = remember(report) { buildCsv(report) }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Exportar CSV", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Copie o relatório do mês em CSV para colar no Sheets, Excel ou bloco de notas.")
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { clipboardManager.setText(AnnotatedString(csv)) }
-            ) {
-                Text("Copiar CSV do mês")
-            }
+    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Ações do relatório", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text("Copie o CSV do mês para colar no Google Sheets, Excel ou bloco de notas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { clipboardManager.setText(AnnotatedString(csv)) }
+        ) {
+            Text("Copiar CSV do mês")
         }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCurrentMonth) { Text("Voltar para mês atual") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
     }
 }
 
 @Composable
 private fun SummaryLine(label: String, value: Long) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label)
-        Text(money(value), fontWeight = FontWeight.SemiBold)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(money(value), fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun CategoryCard(item: CategoryExpenseReport) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(item.category, fontWeight = FontWeight.Bold)
-                Text(money(item.amountInCents), fontWeight = FontWeight.SemiBold)
+                Text(item.category, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                Text(money(item.amountInCents), fontWeight = FontWeight.Bold)
             }
             LinearProgressIndicator(progress = { (item.percentage / 100.0).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-            Text("${item.percentage.toInt()}% das despesas")
+            Text("${item.percentage.toInt()}% das despesas", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -161,11 +218,18 @@ private fun CategoryCard(item: CategoryExpenseReport) {
 private fun MovementReportCard(movement: FinancialMovement) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(movement.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("${movement.type.displayName} • ${movement.date.format(formatter)}${movement.category?.let { " • $it" } ?: ""}")
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(movement.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("${movement.type.displayName} • ${movement.date.format(formatter)}${movement.category?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(money(movement.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+private fun EmptyReportCard(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
