@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.tasks
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -22,15 +24,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -109,6 +115,7 @@ fun TasksRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     tasks: List<Task>,
@@ -140,74 +147,94 @@ fun TasksScreen(
     onDeleteTask: (Task) -> Unit
 ) {
     var isEditorOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(editorState.isEditing) { if (editorState.isEditing) isEditorOpen = true }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    LaunchedEffect(editorState.isEditing) {
+        if (editorState.isEditing) isEditorOpen = true
+    }
 
     val allTags = remember(taskTags) { taskTags.values.flatten().distinct().sorted() }
     val filteredTasks = remember(tasks, taskTags, selectedTag) {
         selectedTag?.let { tag -> tasks.filter { task -> taskTags[task.id].orEmpty().contains(tag) } } ?: tasks
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Veja o que precisa fazer e abra a criação só quando quiser.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Lista de tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Organize o dia e use o botão + para adicionar rapidamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        }
 
-        item { TaskQuickActionsCard(onOpenProjects, onOpenKanban, onOpenFocus, onOpenFocusMode) }
+            item { TaskQuickActionsCard(onOpenProjects, onOpenKanban, onOpenFocus, onOpenFocusMode) }
 
-        item {
-            if (!isEditorOpen) {
-                Button(modifier = Modifier.fillMaxWidth(), onClick = { isEditorOpen = true }) { Text("Nova tarefa") }
+            if (allTags.isNotEmpty()) {
+                item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
+            }
+
+            if (filteredTasks.isEmpty()) {
+                item { EmptyTasksCard(hasFilter = selectedTag != null) }
             } else {
-                TaskEditorCard(
-                    state = editorState,
-                    onTitleChange = onTitleChange,
-                    onDueDatePreviousDay = onDueDatePreviousDay,
-                    onDueDateNextDay = onDueDateNextDay,
-                    onDueDateToday = onDueDateToday,
-                    onDueDateTomorrow = onDueDateTomorrow,
-                    onDueDateNextWeek = onDueDateNextWeek,
-                    onCategoryChange = onCategoryChange,
-                    onPriorityChange = onPriorityChange,
-                    onRecurrenceTypeChange = onRecurrenceTypeChange,
-                    onEstimatedHoursChange = onEstimatedHoursChange,
-                    onEstimatedMinutesChange = onEstimatedMinutesChange,
-                    onTagsChange = onTagsChange,
-                    onSaveClick = {
-                        onSaveClick()
-                        isEditorOpen = false
-                    },
-                    onCancelEdit = {
-                        onCancelEdit()
-                        isEditorOpen = false
-                    }
-                )
+                items(items = filteredTasks, key = { it.id }) { task ->
+                    TaskCard(
+                        task = task,
+                        estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
+                        tags = taskTags[task.id].orEmpty(),
+                        onStartEdit = onStartEdit,
+                        onToggleTask = onToggleTask,
+                        onDeleteTask = onDeleteTask
+                    )
+                }
             }
         }
 
-        if (allTags.isNotEmpty()) {
-            item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
+        FloatingActionButton(
+            onClick = { isEditorOpen = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Nova tarefa")
         }
+    }
 
-        if (filteredTasks.isEmpty()) {
-            item { EmptyTasksCard(hasFilter = selectedTag != null) }
-        } else {
-            items(items = filteredTasks, key = { it.id }) { task ->
-                TaskCard(
-                    task = task,
-                    estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
-                    tags = taskTags[task.id].orEmpty(),
-                    onStartEdit = onStartEdit,
-                    onToggleTask = onToggleTask,
-                    onDeleteTask = onDeleteTask
-                )
-            }
+    if (isEditorOpen) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                onCancelEdit()
+                isEditorOpen = false
+            },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            TaskEditorSheet(
+                state = editorState,
+                onTitleChange = onTitleChange,
+                onDueDatePreviousDay = onDueDatePreviousDay,
+                onDueDateNextDay = onDueDateNextDay,
+                onDueDateToday = onDueDateToday,
+                onDueDateTomorrow = onDueDateTomorrow,
+                onDueDateNextWeek = onDueDateNextWeek,
+                onCategoryChange = onCategoryChange,
+                onPriorityChange = onPriorityChange,
+                onRecurrenceTypeChange = onRecurrenceTypeChange,
+                onEstimatedHoursChange = onEstimatedHoursChange,
+                onEstimatedMinutesChange = onEstimatedMinutesChange,
+                onTagsChange = onTagsChange,
+                onSaveClick = {
+                    onSaveClick()
+                    isEditorOpen = false
+                },
+                onCancelEdit = {
+                    onCancelEdit()
+                    isEditorOpen = false
+                }
+            )
         }
     }
 }
@@ -215,33 +242,25 @@ fun TasksScreen(
 @Composable
 private fun TaskQuickActionsCard(onOpenProjects: () -> Unit, onOpenKanban: () -> Unit, onOpenFocus: () -> Unit, onOpenFocusMode: () -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Outras visualizações", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(modifier = Modifier.weight(1f), onClick = onOpenProjects) { Text("Projetos") }
-                Button(modifier = Modifier.weight(1f), onClick = onOpenKanban) { Text("Kanban") }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(modifier = Modifier.weight(1f), onClick = onOpenFocus) { Text("Foco") }
-                Button(modifier = Modifier.weight(1f), onClick = onOpenFocusMode) { Text("Modo Foco") }
-            }
+        LazyRow(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = false, onClick = onOpenProjects, label = { Text("Projetos") }) }
+            item { FilterChip(selected = false, onClick = onOpenKanban, label = { Text("Kanban") }) }
+            item { FilterChip(selected = false, onClick = onOpenFocus, label = { Text("Foco") }) }
+            item { FilterChip(selected = false, onClick = onOpenFocusMode, label = { Text("Modo Foco") }) }
         }
     }
 }
 
 @Composable
 private fun TagFilterRow(tags: List<String>, selectedTag: String?, onTagFilterChange: (String?) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Filtrar por tag", style = MaterialTheme.typography.labelLarge)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { FilterChip(selected = selectedTag == null, onClick = { onTagFilterChange(null) }, label = { Text("Todas") }) }
-            items(tags) { tag -> FilterChip(selected = selectedTag == tag, onClick = { onTagFilterChange(tag) }, label = { Text("#$tag") }) }
-        }
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { FilterChip(selected = selectedTag == null, onClick = { onTagFilterChange(null) }, label = { Text("Todas") }) }
+        items(tags) { tag -> FilterChip(selected = selectedTag == tag, onClick = { onTagFilterChange(tag) }, label = { Text("#$tag") }) }
     }
 }
 
 @Composable
-private fun TaskEditorCard(
+private fun TaskEditorSheet(
     state: TaskEditorUiState,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
@@ -258,52 +277,42 @@ private fun TaskEditorCard(
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if (state.isEditing) "Editar tarefa" else "Nova tarefa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Título") }, singleLine = true)
-            DateSelector(state.dueDate, onDueDatePreviousDay, onDueDateNextDay, onDueDateToday, onDueDateTomorrow, onDueDateNextWeek)
-            DurationFields(state, onEstimatedHoursChange, onEstimatedMinutesChange)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.tagsText, onValueChange = onTagsChange, label = { Text("Tags") }, placeholder = { Text("Ex: trabalho, casa, estudo") }, singleLine = true)
-            ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
-            ChipSelector("Prioridade", Priority.entries, state.priority, { it.displayName }, onPriorityChange)
-            val recurrenceOptions = listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY)
-            ChipSelector("Recorrência", recurrenceOptions, state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveClick) { Text(if (state.isEditing) "Salvar alterações" else "Criar tarefa") }
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Fechar") }
-        }
+    Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(if (state.isEditing) "Editar tarefa" else "Nova tarefa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Digite uma tarefa...") }, singleLine = true)
+        DateSelector(state.dueDate, onDueDatePreviousDay, onDueDateNextDay, onDueDateToday, onDueDateTomorrow, onDueDateNextWeek)
+        DurationFields(state, onEstimatedHoursChange, onEstimatedMinutesChange)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.tagsText, onValueChange = onTagsChange, label = { Text("Tags") }, placeholder = { Text("Ex: trabalho, casa, estudo") }, singleLine = true)
+        ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
+        ChipSelector("Prioridade", Priority.entries, state.priority, { it.displayName }, onPriorityChange)
+        val recurrenceOptions = listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY)
+        ChipSelector("Recorrência", recurrenceOptions, state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveClick) { Text(if (state.isEditing) "Salvar alterações" else "Adicionar") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar") }
     }
 }
 
 @Composable
 private fun DurationFields(state: TaskEditorUiState, onEstimatedHoursChange: (String) -> Unit, onEstimatedMinutesChange: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Duração estimada", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedHoursText, onValueChange = onEstimatedHoursChange, label = { Text("Horas") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedMinutesText, onValueChange = onEstimatedMinutesChange, label = { Text("Minutos") }, singleLine = true)
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedHoursText, onValueChange = onEstimatedHoursChange, label = { Text("Horas") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.weight(1f), value = state.estimatedMinutesText, onValueChange = onEstimatedMinutesChange, label = { Text("Min") }, singleLine = true)
     }
 }
 
 @Composable
 private fun DateSelector(date: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onTomorrow: () -> Unit, onNextWeek: () -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Data", style = MaterialTheme.typography.labelMedium)
-                    Text(date.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
-            }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
-                item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
-                item { FilterChip(selected = false, onClick = onNextWeek, label = { Text("Próx. semana") }) }
-            }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
+            Text(date.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Próximo dia") }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
+            item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
+            item { FilterChip(selected = false, onClick = onNextWeek, label = { Text("Próx. semana") }) }
         }
     }
 }
@@ -322,8 +331,8 @@ private fun <T> ChipSelector(title: String, options: List<T>, selected: T, label
 private fun EmptyTasksCard(hasFilter: Boolean) {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(if (hasFilter) "Nenhuma tarefa com essa tag" else "Nenhuma tarefa cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(if (hasFilter) "Limpe o filtro ou escolha outra tag." else "Toque em Nova tarefa quando quiser criar uma.", style = MaterialTheme.typography.bodyMedium)
+            Text(if (hasFilter) "Nenhuma tarefa com essa tag" else "Nenhuma tarefa cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(if (hasFilter) "Limpe o filtro ou escolha outra tag." else "Toque no + para criar sua primeira tarefa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -335,8 +344,8 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
             Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
                 Text("${task.category.displayName} • ${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
