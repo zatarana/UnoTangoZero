@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.movements
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -18,15 +20,19 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,6 +103,7 @@ fun MovementsRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovementsScreen(
     openFormInitially: Boolean,
@@ -122,70 +129,93 @@ fun MovementsScreen(
     onDelete: (FinancialMovement) -> Unit
 ) {
     var isFormOpen by remember(openFormInitially) { mutableStateOf(openFormInitially) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Registre lançamentos e confira seu histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        if (accounts.isEmpty()) {
-            item { Text("Cadastre uma conta antes de criar movimentações.") }
-        } else {
-            item { BalancesCard(balances) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 22.dp, end = 20.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
             item {
-                if (!isFormOpen) {
-                    Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Novo lançamento") }
-                } else {
-                    MovementFormCard(
-                        accounts = accounts,
-                        categories = categories,
-                        form = form,
-                        onTypeChange = onTypeChange,
-                        onDescriptionChange = onDescriptionChange,
-                        onAmountChange = onAmountChange,
-                        onCategoryChange = onCategoryChange,
-                        onCategorySelected = onCategorySelected,
-                        onAccountChange = onAccountChange,
-                        onFromAccountChange = onFromAccountChange,
-                        onToAccountChange = onToAccountChange,
-                        onPreviousDay = onPreviousDay,
-                        onNextDay = onNextDay,
-                        onToday = onToday,
-                        onYesterday = onYesterday,
-                        onTomorrow = onTomorrow,
-                        onSave = {
-                            onSave()
-                            isFormOpen = false
-                        },
-                        onClose = { isFormOpen = false }
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Registre lançamentos e confira seu histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+
+            if (accounts.isEmpty()) {
+                item { EmptyInfoCard("Cadastre uma conta antes de criar movimentações.") }
+            } else {
+                item { BalancesCard(balances) }
+            }
+
+            item { Text("Histórico", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
+            if (movements.isEmpty()) {
+                item { EmptyInfoCard("Nenhuma movimentação cadastrada. Toque no + para lançar a primeira.") }
+            } else {
+                items(movements, key = { it.id }) { movement -> MovementCard(movement, accounts, onDelete) }
             }
         }
 
-        item { Text("Histórico", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        if (movements.isEmpty()) {
-            item { Text("Nenhuma movimentação cadastrada.") }
-        } else {
-            items(movements, key = { it.id }) { movement -> MovementCard(movement, accounts, onDelete) }
+        if (accounts.isNotEmpty()) {
+            FloatingActionButton(
+                onClick = { isFormOpen = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Novo lançamento")
+            }
+        }
+    }
+
+    if (isFormOpen && accounts.isNotEmpty()) {
+        ModalBottomSheet(
+            onDismissRequest = { isFormOpen = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            MovementFormSheet(
+                accounts = accounts,
+                categories = categories,
+                form = form,
+                onTypeChange = onTypeChange,
+                onDescriptionChange = onDescriptionChange,
+                onAmountChange = onAmountChange,
+                onCategoryChange = onCategoryChange,
+                onCategorySelected = onCategorySelected,
+                onAccountChange = onAccountChange,
+                onFromAccountChange = onFromAccountChange,
+                onToAccountChange = onToAccountChange,
+                onPreviousDay = onPreviousDay,
+                onNextDay = onNextDay,
+                onToday = onToday,
+                onYesterday = onYesterday,
+                onTomorrow = onTomorrow,
+                onSave = {
+                    onSave()
+                    isFormOpen = false
+                },
+                onClose = { isFormOpen = false }
+            )
         }
     }
 }
 
 @Composable
 private fun BalancesCard(balances: List<AccountBalance>) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Saldos atuais", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            balances.forEach { balance ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(balance.account.name)
-                    Text(money(balance.currentBalanceInCents), fontWeight = FontWeight.SemiBold)
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Saldos atuais", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            if (balances.isEmpty()) {
+                Text("Nenhuma conta com saldo para exibir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                balances.forEach { balance ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(balance.account.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(money(balance.currentBalanceInCents), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -193,7 +223,7 @@ private fun BalancesCard(balances: List<AccountBalance>) {
 }
 
 @Composable
-private fun MovementFormCard(
+private fun MovementFormSheet(
     accounts: List<FinancialAccount>,
     categories: List<FinancialCategory>,
     form: MovementFormState,
@@ -215,50 +245,48 @@ private fun MovementFormCard(
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val selectableTypes = listOf(FinancialMovementType.EXPENSE, FinancialMovementType.INCOME, FinancialMovementType.TRANSFER)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Novo lançamento", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(selectableTypes) { type ->
-                    FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
-                }
+    Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Novo lançamento", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(selectableTypes) { type ->
+                FilterChip(selected = form.type == type, onClick = { onTypeChange(type) }, label = { Text(type.displayName) })
             }
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
-                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                        Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
-                        IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
-                    }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { FilterChip(selected = false, onClick = onYesterday, label = { Text("Ontem") }) }
-                        item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
-                        item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
-                    }
-                }
-            }
-
-            when (form.type) {
-                FinancialMovementType.INCOME -> {
-                    CategoryPicker("Categoria da receita", form.category, FinancialCategoryType.INCOME, categories, onCategoryChange, onCategorySelected)
-                    AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
-                }
-                FinancialMovementType.EXPENSE -> {
-                    CategoryPicker("Categoria da despesa", form.category, FinancialCategoryType.EXPENSE, categories, onCategoryChange, onCategorySelected)
-                    AccountPicker("Conta de saída", accounts, form.accountId, onAccountChange)
-                }
-                FinancialMovementType.TRANSFER -> {
-                    AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
-                    AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
-                }
-                FinancialMovementType.ADJUSTMENT -> Text("Ajustes são criados pela tela Reconciliação.")
-            }
-
-            Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar lançamento") }
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
+                    Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
+                    IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { FilterChip(selected = false, onClick = onYesterday, label = { Text("Ontem") }) }
+                    item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
+                    item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
+                }
+            }
+        }
+
+        when (form.type) {
+            FinancialMovementType.INCOME -> {
+                CategoryPicker("Categoria da receita", form.category, FinancialCategoryType.INCOME, categories, onCategoryChange, onCategorySelected)
+                AccountPicker("Conta de destino", accounts, form.accountId, onAccountChange)
+            }
+            FinancialMovementType.EXPENSE -> {
+                CategoryPicker("Categoria da despesa", form.category, FinancialCategoryType.EXPENSE, categories, onCategoryChange, onCategorySelected)
+                AccountPicker("Conta de saída", accounts, form.accountId, onAccountChange)
+            }
+            FinancialMovementType.TRANSFER -> {
+                AccountPicker("Conta de origem", accounts, form.fromAccountId, onFromAccountChange)
+                AccountPicker("Conta de destino", accounts, form.toAccountId, onToAccountChange)
+            }
+            FinancialMovementType.ADJUSTMENT -> Text("Ajustes são criados pela tela Reconciliação.")
+        }
+
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar lançamento") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
 }
 
@@ -299,15 +327,22 @@ private fun MovementCard(movement: FinancialMovement, accounts: List<FinancialAc
         }
     }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(movement.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("${movement.type.displayName} • ${movement.date.format(formatter)} • $accountName")
+                Text(movement.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                Text("${movement.type.displayName} • ${movement.date.format(formatter)} • $accountName", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 movement.category?.let { AssistChip(onClick = {}, label = { Text(it) }) }
                 Text(money(movement.amountInCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             IconButton(onClick = { onDelete(movement) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir") }
         }
+    }
+}
+
+@Composable
+private fun EmptyInfoCard(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
