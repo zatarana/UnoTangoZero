@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -29,6 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +87,7 @@ fun EnvelopeBudgetScreen(
     onSaveEnvelope: () -> Unit,
     onDeleteEnvelope: (String) -> Unit
 ) {
+    var isFormOpen by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -90,27 +95,33 @@ fun EnvelopeBudgetScreen(
     ) {
         item {
             Text("Orçamento", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            Text("Distribua sua receita mensal em envelopes por categoria.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Veja seus envelopes primeiro; crie novos só quando precisar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item { BudgetSummaryCard(summary) }
         item {
-            EnvelopeFormCard(
-                form = form,
-                categories = categories,
-                onCategoryChange = onCategoryChange,
-                onCategorySelected = onCategorySelected,
-                onAmountChange = onAmountChange,
-                onRolloverChange = onRolloverChange,
-                onSaveEnvelope = onSaveEnvelope
-            )
+            if (!isFormOpen) {
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { isFormOpen = true }) { Text("Novo envelope") }
+            } else {
+                EnvelopeFormCard(
+                    form = form,
+                    categories = categories,
+                    onCategoryChange = onCategoryChange,
+                    onCategorySelected = onCategorySelected,
+                    onAmountChange = onAmountChange,
+                    onRolloverChange = onRolloverChange,
+                    onSaveEnvelope = {
+                        onSaveEnvelope()
+                        isFormOpen = false
+                    },
+                    onClose = { isFormOpen = false }
+                )
+            }
         }
         item { Text("Envelopes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         if (summary.envelopes.isEmpty()) {
             item { Text("Nenhum envelope criado para este mês.") }
         } else {
-            items(summary.envelopes, key = { it.envelope.id }) { status ->
-                EnvelopeStatusCard(status = status, onDeleteEnvelope = onDeleteEnvelope)
-            }
+            items(summary.envelopes, key = { it.envelope.id }) { status -> EnvelopeStatusCard(status = status, onDeleteEnvelope = onDeleteEnvelope) }
         }
     }
 }
@@ -146,7 +157,8 @@ private fun EnvelopeFormCard(
     onCategorySelected: (FinancialCategory) -> Unit,
     onAmountChange: (String) -> Unit,
     onRolloverChange: (Boolean) -> Unit,
-    onSaveEnvelope: () -> Unit
+    onSaveEnvelope: () -> Unit,
+    onClose: () -> Unit
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -155,11 +167,7 @@ private fun EnvelopeFormCard(
             if (categories.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories, key = { it.id }) { category ->
-                        FilterChip(
-                            selected = form.category == category.displayLabel,
-                            onClick = { onCategorySelected(category) },
-                            label = { Text(category.displayLabel) }
-                        )
+                        FilterChip(selected = form.category == category.displayLabel, onClick = { onCategorySelected(category) }, label = { Text(category.displayLabel) })
                     }
                 }
             }
@@ -169,6 +177,7 @@ private fun EnvelopeFormCard(
                 Text("Sobra acumula para o próximo mês")
             }
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveEnvelope) { Text("Criar envelope") }
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Fechar") }
         }
     }
 }
@@ -183,9 +192,7 @@ private fun EnvelopeStatusCard(status: BudgetEnvelopeStatus, onDeleteEnvelope: (
                     Text(status.envelope.category, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(if (status.envelope.rolloverEnabled) "Rollover ativo" else "Rollover desligado")
                 }
-                IconButton(onClick = { onDeleteEnvelope(status.envelope.id) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Excluir")
-                }
+                IconButton(onClick = { onDeleteEnvelope(status.envelope.id) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir") }
             }
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             Text("Orçado: ${money(status.envelope.allocatedAmountInCents)}")
