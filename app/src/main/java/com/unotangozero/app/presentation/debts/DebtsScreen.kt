@@ -23,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -100,6 +101,9 @@ fun DebtsScreen(
     onMarkAsPaid: (Debt) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
+    val openDebts = remember(debts) { debts.filter { it.status != DebtStatus.PAID }.sortedBy { it.dueDate } }
+    val paidDebts = remember(debts) { debts.filter { it.status == DebtStatus.PAID }.sortedByDescending { it.updatedAt } }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -109,14 +113,14 @@ fun DebtsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Dívidas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "Cadastre, edite e acompanhe dívidas sem cálculo de juros.",
+                    text = "Acompanhe dívidas abertas, quitadas e o progresso de pagamento.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        item { DebtSummaryCard(summary = summary) }
+        item { DebtSummaryCard(summary = summary, debts = debts) }
 
         item {
             DebtEditorCard(
@@ -131,20 +135,35 @@ fun DebtsScreen(
             )
         }
 
-        item {
-            Text("Dívidas cadastradas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         if (debts.isEmpty()) {
             item { EmptyDebtsCard() }
         } else {
-            items(items = debts, key = { it.id }) { debt ->
-                DebtCard(
-                    debt = debt,
-                    onStartEdit = onStartEdit,
-                    onMarkAsPaid = onMarkAsPaid,
-                    onDeleteDebt = onDeleteDebt
-                )
+            item { SectionTitle("Em aberto", openDebts.size) }
+            if (openDebts.isEmpty()) {
+                item { EmptySectionCard("Nenhuma dívida em aberto. Boa!") }
+            } else {
+                items(items = openDebts, key = { it.id }) { debt ->
+                    DebtCard(
+                        debt = debt,
+                        onStartEdit = onStartEdit,
+                        onMarkAsPaid = onMarkAsPaid,
+                        onDeleteDebt = onDeleteDebt
+                    )
+                }
+            }
+
+            item { SectionTitle("Quitadas", paidDebts.size) }
+            if (paidDebts.isEmpty()) {
+                item { EmptySectionCard("Nenhuma dívida quitada ainda.") }
+            } else {
+                items(items = paidDebts, key = { it.id }) { debt ->
+                    DebtCard(
+                        debt = debt,
+                        onStartEdit = onStartEdit,
+                        onMarkAsPaid = onMarkAsPaid,
+                        onDeleteDebt = onDeleteDebt
+                    )
+                }
             }
         }
     }
@@ -165,7 +184,7 @@ private fun DebtEditorCard(
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(if (state.isEditing) "Editar dívida" else "Nova dívida", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.creditor, onValueChange = onCreditorChange, label = { Text("Credor") }, singleLine = true)
-            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, singleLine = true, prefix = { Text("R$ ") })
+            OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor em aberto") }, singleLine = true, prefix = { Text("R$ ") })
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
             DueDateSelector(dueDate = state.dueDate, onPreviousDueDay = onPreviousDueDay, onNextDueDay = onNextDueDay)
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveDebt) { Text(if (state.isEditing) "Salvar alterações" else "Cadastrar dívida") }
@@ -177,11 +196,19 @@ private fun DebtEditorCard(
 }
 
 @Composable
-private fun DebtSummaryCard(summary: DebtSummary) {
+private fun DebtSummaryCard(summary: DebtSummary, debts: List<Debt>) {
+    val totalOriginal = debts.sumOf { it.originalAmountInCents }.coerceAtLeast(0L)
+    val totalRemaining = debts.filter { it.status != DebtStatus.PAID }.sumOf { it.remainingAmountInCents }.coerceAtLeast(0L)
+    val paidAmount = (totalOriginal - totalRemaining).coerceAtLeast(0L)
+    val progress = if (totalOriginal > 0L) (paidAmount.toDouble() / totalOriginal.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
+    val progressPercent = (progress * 100).toInt()
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Resumo das dívidas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(formatMoney(summary.totalDebtWithInterestInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(formatMoney(totalRemaining), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("em aberto • $progressPercent% quitado", style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             Text("${summary.activeDebts} ativa(s) • ${summary.paidDebts} paga(s)", style = MaterialTheme.typography.bodyMedium)
             summary.nextDueDate?.let {
                 Text(
@@ -210,23 +237,45 @@ private fun DueDateSelector(dueDate: LocalDate, onPreviousDueDay: () -> Unit, on
 }
 
 @Composable
+private fun SectionTitle(title: String, count: Int) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        AssistChip(onClick = {}, label = { Text(count.toString()) })
+    }
+}
+
+@Composable
 private fun EmptyDebtsCard() {
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Nenhuma dívida cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("Cadastre uma dívida acima para acompanhar vencimentos.", style = MaterialTheme.typography.bodyMedium)
+            Text("Cadastre uma dívida acima para acompanhar vencimentos, status e progresso.", style = MaterialTheme.typography.bodyMedium)
         }
+    }
+}
+
+@Composable
+private fun EmptySectionCard(text: String) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(text = text, modifier = Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Debt) -> Unit, onDeleteDebt: (Debt) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val paidProgress = if (debt.originalAmountInCents > 0L) {
+        ((debt.originalAmountInCents - debt.remainingAmountInCents).toDouble() / debt.originalAmountInCents.toDouble()).toFloat().coerceIn(0f, 1f)
+    } else 0f
+    val paidPercent = (paidProgress * 100).toInt()
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(text = debt.creditor, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = formatMoney(debt.totalDueInCents), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(text = formatMoney(debt.remainingAmountInCents), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("$paidPercent% quitado", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LinearProgressIndicator(progress = { paidProgress }, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistChip(onClick = {}, label = { Text(debt.status.displayName) })
                     Text(text = "Vence em ${debt.dueDate.format(formatter)}", modifier = Modifier.align(Alignment.CenterVertically), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
