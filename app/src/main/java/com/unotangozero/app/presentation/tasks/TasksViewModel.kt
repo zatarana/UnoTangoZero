@@ -3,6 +3,7 @@ package com.unotangozero.app.presentation.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.settings.AppSettingsRepository
+import com.unotangozero.app.data.tasks.FocusSessionRepository
 import com.unotangozero.app.data.tasks.TaskDurationRepository
 import com.unotangozero.app.data.tasks.TaskTagRepository
 import com.unotangozero.app.domain.enums.Priority
@@ -48,7 +49,8 @@ class TasksViewModel @Inject constructor(
     private val settingsRepository: AppSettingsRepository,
     private val reminderScheduler: TaskReminderScheduler,
     private val taskDurationRepository: TaskDurationRepository,
-    private val taskTagRepository: TaskTagRepository
+    private val taskTagRepository: TaskTagRepository,
+    private val focusSessionRepository: FocusSessionRepository
 ) : ViewModel() {
     val tasks: StateFlow<List<Task>> = taskRepository.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val taskDurations: StateFlow<Map<String, Int>> = taskDurationRepository.durations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -188,6 +190,7 @@ class TasksViewModel @Inject constructor(
             taskRepository.delete(task.id).onSuccess {
                 taskDurationRepository.setDuration(task.id, 0)
                 taskTagRepository.clear(task.id)
+                focusSessionRepository.clearTask(task.id)
                 reminderScheduler.cancel(task.id)
                 if (_editorState.value.editingTask?.id == task.id) resetEditor()
                 _message.value = "Tarefa excluída."
