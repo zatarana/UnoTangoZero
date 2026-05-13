@@ -52,6 +52,7 @@ class ProjectsViewModel @Inject constructor(
 
     fun previousDeadlineDay() { _deadline.value = (_deadline.value ?: LocalDate.now()).minusDays(1) }
     fun nextDeadlineDay() { _deadline.value = (_deadline.value ?: LocalDate.now()).plusDays(1) }
+    fun onDeadlineSelected(date: LocalDate) { _deadline.value = date }
     fun clearDeadline() { _deadline.value = null }
 
     fun selectProject(projectId: String) {
