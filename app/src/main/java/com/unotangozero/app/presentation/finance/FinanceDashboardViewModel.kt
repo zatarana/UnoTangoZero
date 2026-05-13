@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.bills.PlannedBillRepository
 import com.unotangozero.app.data.budget.EnvelopeBudgetRepository
 import com.unotangozero.app.data.finance.FinancialMovementRepository
+import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.MonthlyBudgetSummary
 import com.unotangozero.app.domain.models.PlannedBill
@@ -19,13 +20,16 @@ import javax.inject.Inject
 
 data class FinanceDashboardUiState(
     val totalBalanceInCents: Long = 0L,
+    val accountCount: Int = 0,
     val monthlyIncomeInCents: Long = 0L,
     val monthlyExpenseInCents: Long = 0L,
     val monthlyAdjustmentInCents: Long = 0L,
     val monthlyBalanceInCents: Long = 0L,
+    val monthlyMovementCount: Int = 0,
     val budgetSummary: MonthlyBudgetSummary? = null,
     val upcomingBills: List<PlannedBill> = emptyList(),
     val overdueBills: List<PlannedBill> = emptyList(),
+    val recentMovements: List<FinancialMovement> = emptyList(),
     val next30DaysImpactInCents: Long = 0L
 )
 
@@ -54,13 +58,16 @@ class FinanceDashboardViewModel @Inject constructor(
         val overdue = openBills.filter { it.dueDate.isBefore(today) }.sortedBy { it.dueDate }
         FinanceDashboardUiState(
             totalBalanceInCents = balances.sumOf { it.currentBalanceInCents },
+            accountCount = balances.size,
             monthlyIncomeInCents = income,
             monthlyExpenseInCents = expenses,
             monthlyAdjustmentInCents = adjustments,
             monthlyBalanceInCents = income - expenses + adjustments,
+            monthlyMovementCount = monthMovements.size,
             budgetSummary = budgetSummary,
             upcomingBills = upcoming.take(5),
             overdueBills = overdue.take(5),
+            recentMovements = movements.sortedByDescending { it.date }.take(5),
             next30DaysImpactInCents = upcoming.sumOf { bill ->
                 if (bill.type.name == "PAYABLE") -bill.amountInCents else bill.amountInCents
             }
