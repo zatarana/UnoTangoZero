@@ -183,32 +183,60 @@ private fun TangoAppRoot() {
                     TaskDestination.PROJECTS -> ProjectsRoute()
                 }
                 2 -> HabitsRoute()
-                3 -> when (financeDestination) {
-                    FinanceDestination.DASHBOARD -> FinanceRoute(
-                        onOpenAccounts = { financeDestination = FinanceDestination.ACCOUNTS },
-                        onOpenMovements = {
-                            openMovementFormNext = true
-                            financeDestination = FinanceDestination.MOVEMENTS
-                        },
-                        onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
-                        onOpenGoals = { selectedIndex = 0 },
-                        onOpenDebts = { financeDestination = FinanceDestination.DEBTS },
-                        onOpenReports = { financeDestination = FinanceDestination.REPORTS },
-                        onOpenProjection = { financeDestination = FinanceDestination.PROJECTION },
-                        onOpenReconciliation = { financeDestination = FinanceDestination.RECONCILIATION },
-                        onOpenCategories = { financeDestination = FinanceDestination.CATEGORIES }
+                3 -> FinanceContent(
+                    financeDestination = financeDestination,
+                    openMovementFormNext = openMovementFormNext,
+                    onFinanceDestinationChange = { financeDestination = it },
+                    onOpenMovementFormNextChange = { openMovementFormNext = it },
+                    onOpenGoals = { selectedIndex = 0 }
+                )
+                else -> {
+                    selectedIndex = 3
+                    financeDestination = FinanceDestination.DASHBOARD
+                    FinanceContent(
+                        financeDestination = financeDestination,
+                        openMovementFormNext = openMovementFormNext,
+                        onFinanceDestinationChange = { financeDestination = it },
+                        onOpenMovementFormNextChange = { openMovementFormNext = it },
+                        onOpenGoals = { selectedIndex = 0 }
                     )
-                    FinanceDestination.ACCOUNTS -> AccountsRoute()
-                    FinanceDestination.CATEGORIES -> FinancialCategoriesRoute()
-                    FinanceDestination.MOVEMENTS -> MovementsRoute(openFormInitially = openMovementFormNext)
-                    FinanceDestination.RECONCILIATION -> ReconciliationRoute()
-                    FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
-                    FinanceDestination.REPORTS -> FinancialReportsRoute()
-                    FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
-                    FinanceDestination.DEBTS -> DebtsRoute()
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FinanceContent(
+    financeDestination: FinanceDestination,
+    openMovementFormNext: Boolean,
+    onFinanceDestinationChange: (FinanceDestination) -> Unit,
+    onOpenMovementFormNextChange: (Boolean) -> Unit,
+    onOpenGoals: () -> Unit
+) {
+    when (financeDestination) {
+        FinanceDestination.DASHBOARD -> FinanceRoute(
+            onOpenAccounts = { onFinanceDestinationChange(FinanceDestination.ACCOUNTS) },
+            onOpenMovements = {
+                onOpenMovementFormNextChange(true)
+                onFinanceDestinationChange(FinanceDestination.MOVEMENTS)
+            },
+            onOpenBudget = { onFinanceDestinationChange(FinanceDestination.BUDGET) },
+            onOpenGoals = onOpenGoals,
+            onOpenDebts = { onFinanceDestinationChange(FinanceDestination.DEBTS) },
+            onOpenReports = { onFinanceDestinationChange(FinanceDestination.REPORTS) },
+            onOpenProjection = { onFinanceDestinationChange(FinanceDestination.PROJECTION) },
+            onOpenReconciliation = { onFinanceDestinationChange(FinanceDestination.RECONCILIATION) },
+            onOpenCategories = { onFinanceDestinationChange(FinanceDestination.CATEGORIES) }
+        )
+        FinanceDestination.ACCOUNTS -> AccountsRoute()
+        FinanceDestination.CATEGORIES -> FinancialCategoriesRoute()
+        FinanceDestination.MOVEMENTS -> MovementsRoute(openFormInitially = openMovementFormNext)
+        FinanceDestination.RECONCILIATION -> ReconciliationRoute()
+        FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
+        FinanceDestination.REPORTS -> FinancialReportsRoute()
+        FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
+        FinanceDestination.DEBTS -> DebtsRoute()
     }
 }
 
