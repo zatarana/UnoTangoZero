@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.accounts.AccountsRoute
-import com.unotangozero.app.presentation.bills.BillsRoute
 import com.unotangozero.app.presentation.budget.EnvelopeBudgetRoute
 import com.unotangozero.app.presentation.categories.FinancialCategoriesRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
@@ -69,7 +68,7 @@ class MainActivity : ComponentActivity() {
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
 private enum class TaskDestination { MAIN, PROJECTS }
-private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, BILLS, GOALS }
+private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, GOALS }
 
 private val destinations = listOf(
     TangoDestination("Metas", Icons.Default.CheckCircle),
@@ -191,7 +190,6 @@ private fun TangoAppRoot() {
                             financeDestination = FinanceDestination.MOVEMENTS
                         },
                         onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
-                        onOpenBills = { financeDestination = FinanceDestination.BILLS },
                         onOpenGoals = { selectedIndex = 0 },
                         onOpenReports = { financeDestination = FinanceDestination.REPORTS },
                         onOpenProjection = { financeDestination = FinanceDestination.PROJECTION },
@@ -205,7 +203,6 @@ private fun TangoAppRoot() {
                     FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
                     FinanceDestination.REPORTS -> FinancialReportsRoute()
                     FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
-                    FinanceDestination.BILLS -> BillsRoute()
                     FinanceDestination.GOALS -> SavingsGoalsRoute()
                 }
             }
