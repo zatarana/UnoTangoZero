@@ -61,6 +61,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.round
 
 @Composable
 fun MovementsRoute(
@@ -271,7 +272,7 @@ private fun MovementFormSheet(
             }
         }
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
-        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text(if (form.isInstallment && form.type != FinancialMovementType.TRANSFER) "Valor total" else "Valor") }, prefix = { Text("R$ ") }, singleLine = true)
         MovementDateSelector(
             date = form.date,
             onPreviousDay = onPreviousDay,
@@ -284,6 +285,7 @@ private fun MovementFormSheet(
 
         if (form.type != FinancialMovementType.TRANSFER) {
             InstallmentSelector(
+                amountText = form.amountText,
                 isInstallment = form.isInstallment,
                 installmentCountText = form.installmentCountText,
                 onInstallmentChange = onInstallmentChange,
@@ -365,6 +367,7 @@ private fun MovementDateSelector(
 
 @Composable
 private fun InstallmentSelector(
+    amountText: String,
     isInstallment: Boolean,
     installmentCountText: String,
     onInstallmentChange: (Boolean) -> Unit,
@@ -384,6 +387,29 @@ private fun InstallmentSelector(
                 label = { Text("Quantidade de parcelas") },
                 singleLine = true
             )
+            InstallmentPreview(amountText = amountText, installmentCountText = installmentCountText)
+        }
+    }
+}
+
+@Composable
+private fun InstallmentPreview(amountText: String, installmentCountText: String) {
+    val total = parseMoneyToCentsPreview(amountText)
+    val count = installmentCountText.toIntOrNull() ?: 0
+    if (total <= 0L || count < 2) {
+        Text("Informe o valor total e pelo menos 2 parcelas para ver a prévia.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    val base = total / count
+    val remainder = total % count
+    val first = base + remainder
+    val firstText = if (remainder > 0L) "1ª parcela ${money(first)} e demais ${money(base)}" else "${count}x de ${money(base)}"
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Prévia das parcelas", fontWeight = FontWeight.Bold)
+            Text("Valor total: ${money(total)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(firstText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("A primeira parcela usa a data escolhida; as próximas seguem mês a mês.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -450,4 +476,10 @@ private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(Zo
 
 private fun money(cents: Long): String {
     return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(cents / 100.0)
+}
+
+private fun parseMoneyToCentsPreview(rawValue: String): Long {
+    val normalized = rawValue.trim().replace(".", "").replace(",", ".")
+    val amount = normalized.toDoubleOrNull() ?: return 0L
+    return round(amount * 100).toLong()
 }
