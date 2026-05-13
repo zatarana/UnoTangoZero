@@ -46,6 +46,7 @@ import androidx.core.content.ContextCompat
 import com.unotangozero.app.presentation.accounts.AccountsRoute
 import com.unotangozero.app.presentation.budget.EnvelopeBudgetRoute
 import com.unotangozero.app.presentation.categories.FinancialCategoriesRoute
+import com.unotangozero.app.presentation.debts.DebtsRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.goals.SavingsGoalsRoute
 import com.unotangozero.app.presentation.habits.HabitsRoute
@@ -74,7 +75,8 @@ private val destinations = listOf(
     TangoDestination("Metas", Icons.Default.CheckCircle),
     TangoDestination("Tarefas", Icons.Default.Event),
     TangoDestination("Hábitos", Icons.Default.MoreHoriz),
-    TangoDestination("Finanças", Icons.Default.AccountBalanceWallet)
+    TangoDestination("Finanças", Icons.Default.AccountBalanceWallet),
+    TangoDestination("Dívidas", Icons.Default.AccountBalanceWallet)
 )
 
 private val TangoNavy = Color(0xFF071237)
@@ -205,6 +207,7 @@ private fun TangoAppRoot() {
                     FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
                     FinanceDestination.GOALS -> SavingsGoalsRoute()
                 }
+                4 -> DebtsRoute()
             }
         }
     }
