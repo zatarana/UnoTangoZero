@@ -21,6 +21,9 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,11 +33,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +52,9 @@ import com.unotangozero.app.domain.enums.DebtStatus
 import com.unotangozero.app.domain.models.Debt
 import com.unotangozero.app.domain.models.DebtSummary
 import java.text.NumberFormat
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -76,6 +85,7 @@ fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
             onDescriptionChange = viewModel::onDescriptionChange,
             onPreviousDueDay = viewModel::previousDueDay,
             onNextDueDay = viewModel::nextDueDay,
+            onDueDateSelected = viewModel::onDueDateSelected,
             onSaveDebt = viewModel::saveDebtFromEditor,
             onCancelEdit = viewModel::cancelEditing,
             onStartEdit = viewModel::startEditing,
@@ -95,6 +105,7 @@ fun DebtsScreen(
     onDescriptionChange: (String) -> Unit,
     onPreviousDueDay: () -> Unit,
     onNextDueDay: () -> Unit,
+    onDueDateSelected: (LocalDate) -> Unit,
     onSaveDebt: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Debt) -> Unit,
@@ -130,6 +141,7 @@ fun DebtsScreen(
                 onDescriptionChange = onDescriptionChange,
                 onPreviousDueDay = onPreviousDueDay,
                 onNextDueDay = onNextDueDay,
+                onDueDateSelected = onDueDateSelected,
                 onSaveDebt = onSaveDebt,
                 onCancelEdit = onCancelEdit
             )
@@ -177,6 +189,7 @@ private fun DebtEditorCard(
     onDescriptionChange: (String) -> Unit,
     onPreviousDueDay: () -> Unit,
     onNextDueDay: () -> Unit,
+    onDueDateSelected: (LocalDate) -> Unit,
     onSaveDebt: () -> Unit,
     onCancelEdit: () -> Unit
 ) {
@@ -186,7 +199,7 @@ private fun DebtEditorCard(
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.creditor, onValueChange = onCreditorChange, label = { Text("Credor") }, singleLine = true)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor em aberto") }, singleLine = true, prefix = { Text("R$ ") })
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
-            DueDateSelector(dueDate = state.dueDate, onPreviousDueDay = onPreviousDueDay, onNextDueDay = onNextDueDay)
+            DueDateSelector(dueDate = state.dueDate, onPreviousDueDay = onPreviousDueDay, onNextDueDay = onNextDueDay, onDueDateSelected = onDueDateSelected)
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveDebt) { Text(if (state.isEditing) "Salvar alterações" else "Cadastrar dívida") }
             if (state.isEditing) {
                 OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar edição") }
@@ -221,17 +234,45 @@ private fun DebtSummaryCard(summary: DebtSummary, debts: List<Debt>) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DueDateSelector(dueDate: LocalDate, onPreviousDueDay: () -> Unit, onNextDueDay: () -> Unit) {
+private fun DueDateSelector(
+    dueDate: LocalDate,
+    onPreviousDueDay: () -> Unit,
+    onNextDueDay: () -> Unit,
+    onDueDateSelected: (LocalDate) -> Unit
+) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var isCalendarOpen by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueDate.toEpochMillis())
+
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
         Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPreviousDueDay) { Icon(Icons.Default.ChevronLeft, contentDescription = "Diminuir vencimento") }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Vencimento", style = MaterialTheme.typography.labelMedium)
-                Text(dueDate.format(formatter), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Button(onClick = { isCalendarOpen = true }) {
+                    Text(dueDate.format(formatter))
+                }
             }
             IconButton(onClick = onNextDueDay) { Icon(Icons.Default.ChevronRight, contentDescription = "Aumentar vencimento") }
+        }
+    }
+
+    if (isCalendarOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isCalendarOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis -> onDueDateSelected(millis.toLocalDate()) }
+                        isCalendarOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = { TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -294,6 +335,10 @@ private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Deb
         }
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun formatMoney(amountInCents: Long): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
