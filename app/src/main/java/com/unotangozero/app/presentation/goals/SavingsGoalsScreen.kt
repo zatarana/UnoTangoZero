@@ -127,11 +127,12 @@ fun SavingsGoalsScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Metas financeiras", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Acompanhe valores guardados, prazos e porcentagem de conclusão.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Metas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Organize objetivos financeiros agora e use Projetos/Tarefas para objetivos por etapas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
+            item { GoalsTypeOverviewCard() }
             item { GoalsSummaryCard(savedTotal = savedTotal, targetTotal = targetTotal, activeCount = activeGoals.size) }
             item { GoalsGuidanceCard() }
 
@@ -203,12 +204,37 @@ fun SavingsGoalsScreen(
 }
 
 @Composable
+private fun GoalsTypeOverviewCard() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Tipos de metas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Financeiras", fontWeight = FontWeight.ExtraBold)
+                        Text("Disponível agora", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text("Valor, prazo, depósitos e progresso.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("De tarefas", fontWeight = FontWeight.ExtraBold)
+                        Text("Usar Projetos", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                        Text("Etapas, checklist e Kanban por enquanto.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun GoalsSummaryCard(savedTotal: Long, targetTotal: Long, activeCount: Int) {
     val progress = if (targetTotal > 0L) (savedTotal.toDouble() / targetTotal.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
     val progressPercent = (progress * 100).toInt()
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Progresso geral das metas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Progresso geral das metas financeiras", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("$progressPercent%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
             Text("${money(savedTotal)} guardados de ${money(targetTotal)} • $activeCount ativa(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
