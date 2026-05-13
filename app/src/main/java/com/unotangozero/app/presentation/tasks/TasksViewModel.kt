@@ -19,9 +19,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
+import kotlin.math.min
 
 data class TaskEditorUiState(
     val editingTask: Task? = null,
@@ -78,6 +80,23 @@ class TasksViewModel @Inject constructor(
     fun onCategoryChange(category: TaskCategory) { _editorState.value = _editorState.value.copy(category = category) }
     fun onPriorityChange(priority: Priority) { _editorState.value = _editorState.value.copy(priority = priority) }
     fun onRecurrenceTypeChange(value: RecurrenceType) { _editorState.value = _editorState.value.copy(recurrenceType = value) }
+    fun onWeeklyDaySelected(dayOfWeek: DayOfWeek) {
+        val currentDate = _editorState.value.dueDate
+        val daysToAdd = (dayOfWeek.value - currentDate.dayOfWeek.value + 7) % 7
+        _editorState.value = _editorState.value.copy(
+            recurrenceType = RecurrenceType.WEEKLY,
+            dueDate = currentDate.plusDays(daysToAdd.toLong())
+        )
+    }
+    fun onMonthlyDaySelected(dayOfMonth: Int) {
+        val currentDate = _editorState.value.dueDate
+        val targetDay = dayOfMonth.coerceIn(1, 31)
+        val correctedDay = min(targetDay, currentDate.lengthOfMonth())
+        _editorState.value = _editorState.value.copy(
+            recurrenceType = RecurrenceType.MONTHLY,
+            dueDate = currentDate.withDayOfMonth(correctedDay)
+        )
+    }
     fun onTagsChange(value: String) { _editorState.value = _editorState.value.copy(tagsText = value) }
     fun onTagFilterChange(tag: String?) { _selectedTag.value = tag }
     fun onEstimatedHoursChange(value: String) { _editorState.value = _editorState.value.copy(estimatedHoursText = value.filter { it.isDigit() }.take(3)) }
@@ -197,13 +216,7 @@ class TasksViewModel @Inject constructor(
     }
 
     private suspend fun createNextRecurringTaskIfNeeded(task: Task) {
-        val nextDate = when (task.recurrenceType) {
-            RecurrenceType.DAILY -> task.dueDate.plusDays(1)
-            RecurrenceType.WEEKLY -> task.dueDate.plusWeeks(1)
-            RecurrenceType.MONTHLY -> task.dueDate.plusMonths(1)
-            RecurrenceType.YEARLY -> task.dueDate.plusYears(1)
-            else -> null
-        } ?: return
+        val nextDate = nextRecurrenceDate(task) ?: return
         val endDate = task.recurrenceEndDate
         if (endDate != null && nextDate.isAfter(endDate)) return
         val duration = taskDurations.value[task.id] ?: task.estimatedDurationMinutes
@@ -223,6 +236,22 @@ class TasksViewModel @Inject constructor(
             taskTagRepository.setTags(nextTask.id, tags)
             scheduleReminderIfEnabled(nextTask)
             _message.value = "Tarefa concluída. Próxima recorrência criada."
+        }
+    }
+
+    private fun nextRecurrenceDate(task: Task): LocalDate? {
+        return when (task.recurrenceType) {
+            RecurrenceType.DAILY -> task.dueDate.plusDays(1)
+            RecurrenceType.WEEKLY -> task.dueDate.plusWeeks(1)
+            RecurrenceType.MONTHLY -> {
+                val nextMonth = task.dueDate.plusMonths(1)
+                nextMonth.withDayOfMonth(min(task.dueDate.dayOfMonth, nextMonth.lengthOfMonth()))
+            }
+            RecurrenceType.YEARLY -> {
+                val nextYear = task.dueDate.plusYears(1)
+                nextYear.withDayOfMonth(min(task.dueDate.dayOfMonth, nextYear.lengthOfMonth()))
+            }
+            else -> null
         }
     }
 }
