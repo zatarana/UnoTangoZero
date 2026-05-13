@@ -17,12 +17,19 @@ class TaskReminderScheduler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     fun schedule(task: Task, reminderDateTime: LocalDateTime) {
-        val triggerAt = reminderDateTime
+        val now = System.currentTimeMillis()
+        val requestedTriggerAt = reminderDateTime
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
 
-        if (triggerAt <= System.currentTimeMillis()) return
+        val triggerAt = if (requestedTriggerAt <= now && task.dueDate == java.time.LocalDate.now()) {
+            now + FALLBACK_DELAY_MILLIS
+        } else {
+            requestedTriggerAt
+        }
+
+        if (triggerAt <= now) return
 
         val intent = Intent(context, TaskReminderReceiver::class.java).apply {
             putExtra(TaskReminderReceiver.EXTRA_TITLE, task.title)
@@ -40,7 +47,7 @@ class TaskReminderScheduler @Inject constructor(
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
             return
         }
 
@@ -56,5 +63,9 @@ class TaskReminderScheduler @Inject constructor(
         )
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(pendingIntent)
+    }
+
+    private companion object {
+        const val FALLBACK_DELAY_MILLIS = 2 * 60 * 1000L
     }
 }
