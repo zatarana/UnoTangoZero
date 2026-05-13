@@ -193,6 +193,7 @@ private fun TangoAppRoot() {
                         },
                         onOpenBudget = { financeDestination = FinanceDestination.BUDGET },
                         onOpenGoals = { selectedIndex = 0 },
+                        onOpenDebts = { selectedIndex = 4 },
                         onOpenReports = { financeDestination = FinanceDestination.REPORTS },
                         onOpenProjection = { financeDestination = FinanceDestination.PROJECTION },
                         onOpenReconciliation = { financeDestination = FinanceDestination.RECONCILIATION },
