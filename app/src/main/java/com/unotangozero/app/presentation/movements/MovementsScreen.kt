@@ -20,6 +20,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -32,6 +34,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +56,9 @@ import com.unotangozero.app.domain.models.FinancialCategoryType
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -92,8 +99,11 @@ fun MovementsRoute(
             onAccountChange = viewModel::onAccountChange,
             onFromAccountChange = viewModel::onFromAccountChange,
             onToAccountChange = viewModel::onToAccountChange,
+            onInstallmentChange = viewModel::onInstallmentChange,
+            onInstallmentCountChange = viewModel::onInstallmentCountChange,
             onPreviousDay = viewModel::previousDay,
             onNextDay = viewModel::nextDay,
+            onDateSelected = viewModel::onDateSelected,
             onToday = viewModel::today,
             onYesterday = viewModel::yesterday,
             onTomorrow = viewModel::tomorrow,
@@ -120,8 +130,11 @@ fun MovementsScreen(
     onAccountChange: (String?) -> Unit,
     onFromAccountChange: (String?) -> Unit,
     onToAccountChange: (String?) -> Unit,
+    onInstallmentChange: (Boolean) -> Unit,
+    onInstallmentCountChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
     onToday: () -> Unit,
     onYesterday: () -> Unit,
     onTomorrow: () -> Unit,
@@ -140,7 +153,7 @@ fun MovementsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Movimentações", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Registre lançamentos e confira seu histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Registre lançamentos, parcelas e transferências em um só lugar.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -188,8 +201,11 @@ fun MovementsScreen(
                 onAccountChange = onAccountChange,
                 onFromAccountChange = onFromAccountChange,
                 onToAccountChange = onToAccountChange,
+                onInstallmentChange = onInstallmentChange,
+                onInstallmentCountChange = onInstallmentCountChange,
                 onPreviousDay = onPreviousDay,
                 onNextDay = onNextDay,
+                onDateSelected = onDateSelected,
                 onToday = onToday,
                 onYesterday = onYesterday,
                 onTomorrow = onTomorrow,
@@ -235,15 +251,17 @@ private fun MovementFormSheet(
     onAccountChange: (String?) -> Unit,
     onFromAccountChange: (String?) -> Unit,
     onToAccountChange: (String?) -> Unit,
+    onInstallmentChange: (Boolean) -> Unit,
+    onInstallmentCountChange: (String) -> Unit,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
     onToday: () -> Unit,
     onYesterday: () -> Unit,
     onTomorrow: () -> Unit,
     onSave: () -> Unit,
     onClose: () -> Unit
 ) {
-    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val selectableTypes = listOf(FinancialMovementType.EXPENSE, FinancialMovementType.INCOME, FinancialMovementType.TRANSFER)
     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Novo lançamento", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
@@ -254,19 +272,23 @@ private fun MovementFormSheet(
         }
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, singleLine = true)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.amountText, onValueChange = onAmountChange, label = { Text("Valor") }, prefix = { Text("R$ ") }, singleLine = true)
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
-                    Text(form.date.format(formatter), fontWeight = FontWeight.Bold)
-                    IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
-                }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item { FilterChip(selected = false, onClick = onYesterday, label = { Text("Ontem") }) }
-                    item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
-                    item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
-                }
-            }
+        MovementDateSelector(
+            date = form.date,
+            onPreviousDay = onPreviousDay,
+            onNextDay = onNextDay,
+            onDateSelected = onDateSelected,
+            onYesterday = onYesterday,
+            onToday = onToday,
+            onTomorrow = onTomorrow
+        )
+
+        if (form.type != FinancialMovementType.TRANSFER) {
+            InstallmentSelector(
+                isInstallment = form.isInstallment,
+                installmentCountText = form.installmentCountText,
+                onInstallmentChange = onInstallmentChange,
+                onInstallmentCountChange = onInstallmentCountChange
+            )
         }
 
         when (form.type) {
@@ -285,8 +307,84 @@ private fun MovementFormSheet(
             FinancialMovementType.ADJUSTMENT -> Text("Ajustes são criados pela tela Reconciliação.")
         }
 
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("Salvar lançamento") }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) {
+            Text(if (form.isInstallment && form.type != FinancialMovementType.TRANSFER) "Salvar parcelas" else "Salvar lançamento")
+        }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MovementDateSelector(
+    date: LocalDate,
+    onPreviousDay: () -> Unit,
+    onNextDay: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
+    onYesterday: () -> Unit,
+    onToday: () -> Unit,
+    onTomorrow: () -> Unit
+) {
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var isCalendarOpen by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date.toEpochMillis())
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Data", style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onPreviousDay) { Icon(Icons.Default.ChevronLeft, null) }
+                Button(onClick = { isCalendarOpen = true }) { Text(date.format(formatter)) }
+                IconButton(onClick = onNextDay) { Icon(Icons.Default.ChevronRight, null) }
+            }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { FilterChip(selected = false, onClick = onYesterday, label = { Text("Ontem") }) }
+                item { FilterChip(selected = false, onClick = onToday, label = { Text("Hoje") }) }
+                item { FilterChip(selected = false, onClick = onTomorrow, label = { Text("Amanhã") }) }
+            }
+        }
+    }
+
+    if (isCalendarOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isCalendarOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis -> onDateSelected(millis.toLocalDate()) }
+                        isCalendarOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = { TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun InstallmentSelector(
+    isInstallment: Boolean,
+    installmentCountText: String,
+    onInstallmentChange: (Boolean) -> Unit,
+    onInstallmentCountChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Parcelamento", style = MaterialTheme.typography.labelLarge)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = !isInstallment, onClick = { onInstallmentChange(false) }, label = { Text("À vista") }) }
+            item { FilterChip(selected = isInstallment, onClick = { onInstallmentChange(true) }, label = { Text("Parcelado") }) }
+        }
+        if (isInstallment) {
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = installmentCountText,
+                onValueChange = onInstallmentCountChange,
+                label = { Text("Quantidade de parcelas") },
+                singleLine = true
+            )
+        }
     }
 }
 
@@ -345,6 +443,10 @@ private fun EmptyInfoCard(text: String) {
         Text(text, modifier = Modifier.fillMaxWidth().padding(18.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun money(cents: Long): String {
     return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(cents / 100.0)
