@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -311,27 +310,30 @@ private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Deb
     val paidPercent = (paidProgress * 100).toInt()
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = debt.creditor, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = formatMoney(debt.remainingAmountInCents), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("$paidPercent% quitado", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                LinearProgressIndicator(progress = { paidProgress }, modifier = Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = {}, label = { Text(debt.status.displayName) })
-                    Text(text = "Vence em ${debt.dueDate.format(formatter)}", modifier = Modifier.align(Alignment.CenterVertically), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(text = debt.creditor, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = formatMoney(debt.remainingAmountInCents), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("$paidPercent% quitado", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    LinearProgressIndicator(progress = { paidProgress }, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AssistChip(onClick = {}, label = { Text(debt.status.displayName) })
+                        Text(text = "Vence em ${debt.dueDate.format(formatter)}", modifier = Modifier.align(Alignment.CenterVertically), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(onClick = { onStartEdit(debt) }) { Icon(Icons.Default.Edit, contentDescription = "Editar dívida") }
+                IconButton(onClick = { onDeleteDebt(debt) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir dívida") }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(onClick = { onStartEdit(debt) }) { Icon(Icons.Default.Edit, contentDescription = "Editar dívida") }
 
             if (debt.status != DebtStatus.PAID) {
-                IconButton(onClick = { onMarkAsPaid(debt) }) { Icon(Icons.Default.CheckCircle, contentDescription = "Marcar como paga") }
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { onMarkAsPaid(debt) }) {
+                    Text("Quitar integralmente")
+                }
             }
-
-            IconButton(onClick = { onDeleteDebt(debt) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir dívida") }
         }
     }
 }
