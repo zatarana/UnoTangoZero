@@ -36,7 +36,8 @@ data class TaskEditorUiState(
     val recurrenceType: RecurrenceType = RecurrenceType.NONE,
     val estimatedHoursText: String = "",
     val estimatedMinutesText: String = "",
-    val tagsText: String = ""
+    val tagsText: String = "",
+    val subtasksText: String = ""
 ) {
     val isEditing: Boolean = editingTask != null
 }
@@ -98,6 +99,7 @@ class TasksViewModel @Inject constructor(
         )
     }
     fun onTagsChange(value: String) { _editorState.value = _editorState.value.copy(tagsText = value) }
+    fun onSubtasksChange(value: String) { _editorState.value = _editorState.value.copy(subtasksText = value) }
     fun onTagFilterChange(tag: String?) { _selectedTag.value = tag }
     fun onEstimatedHoursChange(value: String) { _editorState.value = _editorState.value.copy(estimatedHoursText = value.filter { it.isDigit() }.take(3)) }
     fun onEstimatedMinutesChange(value: String) { _editorState.value = _editorState.value.copy(estimatedMinutesText = value.filter { it.isDigit() }.take(2)) }
@@ -115,7 +117,8 @@ class TasksViewModel @Inject constructor(
             recurrenceType = task.recurrenceType ?: RecurrenceType.NONE,
             estimatedHoursText = if (duration > 0) (duration / 60).toString() else "",
             estimatedMinutesText = if (duration > 0) (duration % 60).toString() else "",
-            tagsText = taskTags.value[task.id].orEmpty().joinToString(", ")
+            tagsText = taskTags.value[task.id].orEmpty().joinToString(", "),
+            subtasksText = extractSubtasksText(task.description)
         )
     }
 
@@ -130,11 +133,13 @@ class TasksViewModel @Inject constructor(
         }
         val estimatedMinutes = parseEstimatedMinutes(state)
         val tags = parseTags(state.tagsText)
+        val description = buildSubtasksDescription(state.subtasksText)
 
         viewModelScope.launch {
             val recurrenceType = state.recurrenceType
             val task = state.editingTask?.copy(
                 title = title,
+                description = description,
                 dueDate = state.dueDate,
                 category = state.category,
                 priority = state.priority,
@@ -144,6 +149,7 @@ class TasksViewModel @Inject constructor(
                 updatedAt = LocalDateTime.now()
             ) ?: Task(
                 title = title,
+                description = description,
                 dueDate = state.dueDate,
                 category = state.category,
                 priority = state.priority,
@@ -253,5 +259,26 @@ class TasksViewModel @Inject constructor(
             }
             else -> null
         }
+    }
+
+    private fun buildSubtasksDescription(raw: String): String? {
+        val lines = raw.lines().map { it.trim().trimStart('-', '•').trim() }.filter { it.isNotBlank() }
+        if (lines.isEmpty()) return null
+        return SUBTASKS_MARKER + "\n" + lines.joinToString("\n") { "- $it" }
+    }
+
+    private fun extractSubtasksText(description: String?): String {
+        if (description.isNullOrBlank()) return ""
+        val markerIndex = description.indexOf(SUBTASKS_MARKER)
+        if (markerIndex < 0) return ""
+        return description.substring(markerIndex + SUBTASKS_MARKER.length)
+            .lines()
+            .map { it.trim().trimStart('-', '•').trim() }
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
+    }
+
+    companion object {
+        const val SUBTASKS_MARKER = "[[SUBTAREFAS]]"
     }
 }
