@@ -24,6 +24,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -38,6 +40,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +58,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.Project
 import com.unotangozero.app.domain.models.ProjectSection
 import com.unotangozero.app.domain.models.ProjectTask
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private enum class ProjectSheetMode { PROJECT, SECTION, TASK }
@@ -95,6 +100,7 @@ fun ProjectsRoute(viewModel: ProjectsViewModel = hiltViewModel()) {
             onDescriptionChange = viewModel::onDescriptionChange,
             onPreviousDeadlineDay = viewModel::previousDeadlineDay,
             onNextDeadlineDay = viewModel::nextDeadlineDay,
+            onDeadlineSelected = viewModel::onDeadlineSelected,
             onClearDeadline = viewModel::clearDeadline,
             onCreateProject = viewModel::createProject,
             onSelectProject = viewModel::selectProject,
@@ -125,6 +131,7 @@ fun ProjectsScreen(
     onDescriptionChange: (String) -> Unit,
     onPreviousDeadlineDay: () -> Unit,
     onNextDeadlineDay: () -> Unit,
+    onDeadlineSelected: (LocalDate) -> Unit,
     onClearDeadline: () -> Unit,
     onCreateProject: () -> Unit,
     onSelectProject: (String) -> Unit,
@@ -202,6 +209,7 @@ fun ProjectsScreen(
                     onDescriptionChange = onDescriptionChange,
                     onPreviousDeadlineDay = onPreviousDeadlineDay,
                     onNextDeadlineDay = onNextDeadlineDay,
+                    onDeadlineSelected = onDeadlineSelected,
                     onClearDeadline = onClearDeadline,
                     onCreateProject = {
                         onCreateProject()
@@ -333,6 +341,7 @@ private fun ProjectFormSheet(
     onDescriptionChange: (String) -> Unit,
     onPreviousDeadlineDay: () -> Unit,
     onNextDeadlineDay: () -> Unit,
+    onDeadlineSelected: (LocalDate) -> Unit,
     onClearDeadline: () -> Unit,
     onCreateProject: () -> Unit,
     onClose: () -> Unit
@@ -341,7 +350,7 @@ private fun ProjectFormSheet(
         Text("Novo projeto", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = title, onValueChange = onTitleChange, label = { Text("Nome do projeto") }, singleLine = true)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
-        DeadlineSelector(deadline, onPreviousDeadlineDay, onNextDeadlineDay, onClearDeadline)
+        DeadlineSelector(deadline, onPreviousDeadlineDay, onNextDeadlineDay, onDeadlineSelected, onClearDeadline)
         Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateProject) { Text("Criar projeto") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
@@ -386,17 +395,47 @@ private fun SectionPicker(project: Project, selectedSectionId: String?, onSelect
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeadlineSelector(deadline: LocalDate?, onPrevious: () -> Unit, onNext: () -> Unit, onClear: () -> Unit) {
+private fun DeadlineSelector(
+    deadline: LocalDate?,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onDeadlineSelected: (LocalDate) -> Unit,
+    onClear: () -> Unit
+) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var isCalendarOpen by remember { mutableStateOf(false) }
+    val dateForPicker = deadline ?: LocalDate.now()
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateForPicker.toEpochMillis())
+
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = null) }
-                Text(deadline?.format(formatter) ?: "Sem prazo", fontWeight = FontWeight.Bold)
+                Button(onClick = { isCalendarOpen = true }) {
+                    Text(deadline?.format(formatter) ?: "Selecionar prazo")
+                }
                 IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = null) }
             }
             TextButton(onClick = onClear) { Text("Remover prazo") }
+        }
+    }
+
+    if (isCalendarOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isCalendarOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis -> onDeadlineSelected(millis.toLocalDate()) }
+                        isCalendarOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = { TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -448,3 +487,6 @@ private fun EmptyProjectContentCard() {
         )
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
