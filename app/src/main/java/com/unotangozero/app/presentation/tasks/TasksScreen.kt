@@ -416,7 +416,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
             Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
@@ -432,6 +432,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
                     }
                 }
                 if (tags.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) } }
+                FocusTaskButton(task = task)
             }
             IconButton(onClick = { onStartEdit(task) }) { Icon(Icons.Default.Edit, contentDescription = "Editar tarefa") }
             IconButton(onClick = { onDeleteTask(task) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir tarefa") }
