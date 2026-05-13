@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
 private data class TangoDestination(val label: String, val icon: ImageVector)
 
 private enum class TaskDestination { MAIN, PROJECTS }
-private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, GOALS, DEBTS }
+private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMENTS, RECONCILIATION, BUDGET, REPORTS, PROJECTION, DEBTS }
 
 private val destinations = listOf(
     TangoDestination("Metas", Icons.Default.CheckCircle),
@@ -205,7 +205,6 @@ private fun TangoAppRoot() {
                     FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
                     FinanceDestination.REPORTS -> FinancialReportsRoute()
                     FinanceDestination.PROJECTION -> FutureBalanceProjectionRoute()
-                    FinanceDestination.GOALS -> SavingsGoalsRoute()
                     FinanceDestination.DEBTS -> DebtsRoute()
                 }
             }
