@@ -11,11 +11,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +29,9 @@ import com.unotangozero.app.data.tasks.FocusSessionRepository
 import com.unotangozero.app.domain.models.Task
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
@@ -37,6 +40,9 @@ import javax.inject.Inject
 class FocusTaskViewModel @Inject constructor(
     private val focusSessionRepository: FocusSessionRepository
 ) : ViewModel() {
+    val focusSecondsByTask: StateFlow<Map<String, Int>> = focusSessionRepository.focusSecondsByTask
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     fun saveFocusSession(taskId: String, seconds: Int) {
         viewModelScope.launch {
             focusSessionRepository.addFocusedSeconds(taskId, seconds)
@@ -51,17 +57,20 @@ fun FocusTaskButton(
     viewModel: FocusTaskViewModel = hiltViewModel()
 ) {
     var isOpen by remember { mutableStateOf(false) }
+    val focusSecondsByTask by viewModel.focusSecondsByTask.collectAsState()
+    val savedSeconds = focusSecondsByTask[task.id] ?: 0
 
     OutlinedButton(
         modifier = modifier,
         onClick = { isOpen = true }
     ) {
-        Text("Focar")
+        Text(if (savedSeconds > 0) "Focar • ${formatFocusCompact(savedSeconds)}" else "Focar")
     }
 
     if (isOpen) {
         FocusTaskDialog(
             task = task,
+            savedSeconds = savedSeconds,
             onSave = { seconds -> viewModel.saveFocusSession(task.id, seconds) },
             onDismiss = { isOpen = false }
         )
@@ -71,13 +80,13 @@ fun FocusTaskButton(
 @Composable
 private fun FocusTaskDialog(
     task: Task,
+    savedSeconds: Int,
     onSave: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var elapsedSeconds by remember(task.id) { mutableIntStateOf(0) }
     var isRunning by remember(task.id) { mutableStateOf(false) }
     var wasSaved by remember(task.id) { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
 
     fun finishSession() {
         if (!wasSaved && elapsedSeconds > 0) {
@@ -104,6 +113,12 @@ private fun FocusTaskDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (savedSeconds > 0) {
+                    Text(
+                        text = "Total salvo: ${formatFocusCompact(savedSeconds)}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = formatFocusSeconds(elapsedSeconds),
                     modifier = Modifier.fillMaxWidth(),
@@ -137,4 +152,15 @@ private fun formatFocusSeconds(totalSeconds: Int): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return "%02d:%02d:%02d".format(Locale("pt", "BR"), hours, minutes, seconds)
+}
+
+private fun formatFocusCompact(totalSeconds: Int): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return when {
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}min"
+        hours > 0 -> "${hours}h"
+        minutes > 0 -> "${minutes}min"
+        else -> "${totalSeconds}s"
+    }
 }
