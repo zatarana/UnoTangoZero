@@ -177,6 +177,7 @@ fun TasksScreen(
                 }
             }
             item { TaskQuickActionsCard(onOpenProjects) }
+            item { FocusSummaryCard(tasks = tasks) }
             if (allTags.isNotEmpty()) item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
             if (filteredTasks.isEmpty()) item { EmptyTasksCard(hasFilter = selectedTag != null) }
             else item { TaskCategoryKanbanBoard(filteredTasks, taskDurations, taskTags, onStartEdit, onToggleTask, onDeleteTask) }
