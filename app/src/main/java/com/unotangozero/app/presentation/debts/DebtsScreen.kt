@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -108,7 +109,7 @@ fun DebtsScreen(
     onSaveDebt: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Debt) -> Unit,
-    onMarkAsPaid: (Debt) -> Unit,
+    onMarkAsPaid: (Debt, String) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
     val openDebts = remember(debts) { debts.filter { it.status != DebtStatus.PAID }.sortedBy { it.dueDate } }
@@ -302,12 +303,14 @@ private fun EmptySectionCard(text: String) {
 }
 
 @Composable
-private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Debt) -> Unit, onDeleteDebt: (Debt) -> Unit) {
+private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Debt, String) -> Unit, onDeleteDebt: (Debt) -> Unit) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val paidProgress = if (debt.originalAmountInCents > 0L) {
         ((debt.originalAmountInCents - debt.remainingAmountInCents).toDouble() / debt.originalAmountInCents.toDouble()).toFloat().coerceIn(0f, 1f)
     } else 0f
     val paidPercent = (paidProgress * 100).toInt()
+    var isPayoffDialogOpen by remember { mutableStateOf(false) }
+    var finalPaidAmountText by remember(debt.id, debt.remainingAmountInCents) { mutableStateOf(centsToMoneyText(debt.remainingAmountInCents)) }
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -330,11 +333,43 @@ private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Deb
             }
 
             if (debt.status != DebtStatus.PAID) {
-                Button(modifier = Modifier.fillMaxWidth(), onClick = { onMarkAsPaid(debt) }) {
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { isPayoffDialogOpen = true }) {
                     Text("Quitar integralmente")
                 }
             }
         }
+    }
+
+    if (isPayoffDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { isPayoffDialogOpen = false },
+            title = { Text("Quitar dívida") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Informe o valor final pago para ${debt.creditor}.")
+                    Text("Valor em aberto: ${formatMoney(debt.remainingAmountInCents)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = finalPaidAmountText,
+                        onValueChange = { finalPaidAmountText = it.filterMoneyChars() },
+                        label = { Text("Valor final pago") },
+                        prefix = { Text("R$ ") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onMarkAsPaid(debt, finalPaidAmountText)
+                        isPayoffDialogOpen = false
+                    }
+                ) { Text("Quitar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { isPayoffDialogOpen = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
@@ -346,3 +381,9 @@ private fun formatMoney(amountInCents: Long): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
     return formatter.format(amountInCents / 100.0)
 }
+
+private fun centsToMoneyText(amountInCents: Long): String {
+    return "%.2f".format(amountInCents / 100.0).replace('.', ',')
+}
+
+private fun String.filterMoneyChars(): String = filter { it.isDigit() || it == ',' || it == '.' }
