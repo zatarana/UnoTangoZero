@@ -31,7 +31,9 @@ data class MovementFormState(
     val accountId: String? = null,
     val fromAccountId: String? = null,
     val toAccountId: String? = null,
-    val date: LocalDate = LocalDate.now()
+    val date: LocalDate = LocalDate.now(),
+    val isInstallment: Boolean = false,
+    val installmentCountText: String = ""
 )
 
 @HiltViewModel
@@ -60,7 +62,14 @@ class MovementsViewModel @Inject constructor(
     val message: StateFlow<String?> = _message.asStateFlow()
 
     fun onTypeChange(type: FinancialMovementType) {
-        if (type != FinancialMovementType.ADJUSTMENT) _form.value = _form.value.copy(type = type, category = "")
+        if (type != FinancialMovementType.ADJUSTMENT) {
+            _form.value = _form.value.copy(
+                type = type,
+                category = "",
+                isInstallment = if (type == FinancialMovementType.TRANSFER) false else _form.value.isInstallment,
+                installmentCountText = if (type == FinancialMovementType.TRANSFER) "" else _form.value.installmentCountText
+            )
+        }
     }
     fun onDescriptionChange(value: String) { _form.value = _form.value.copy(description = value) }
     fun onAmountChange(value: String) { _form.value = _form.value.copy(amountText = value.filter { it.isDigit() || it == ',' || it == '.' }) }
@@ -69,8 +78,11 @@ class MovementsViewModel @Inject constructor(
     fun onAccountChange(id: String?) { _form.value = _form.value.copy(accountId = id) }
     fun onFromAccountChange(id: String?) { _form.value = _form.value.copy(fromAccountId = id) }
     fun onToAccountChange(id: String?) { _form.value = _form.value.copy(toAccountId = id) }
+    fun onInstallmentChange(value: Boolean) { _form.value = _form.value.copy(isInstallment = value, installmentCountText = if (value) _form.value.installmentCountText else "") }
+    fun onInstallmentCountChange(value: String) { _form.value = _form.value.copy(installmentCountText = value.filter { it.isDigit() }.take(2)) }
     fun previousDay() { _form.value = _form.value.copy(date = _form.value.date.minusDays(1)) }
     fun nextDay() { _form.value = _form.value.copy(date = _form.value.date.plusDays(1)) }
+    fun onDateSelected(date: LocalDate) { _form.value = _form.value.copy(date = date) }
     fun today() { _form.value = _form.value.copy(date = LocalDate.now()) }
     fun yesterday() { _form.value = _form.value.copy(date = LocalDate.now().minusDays(1)) }
     fun tomorrow() { _form.value = _form.value.copy(date = LocalDate.now().plusDays(1)) }
@@ -87,7 +99,18 @@ class MovementsViewModel @Inject constructor(
             return
         }
 
-        val movement = when (state.type) {
+        val installmentCount = if (state.isInstallment && state.type != FinancialMovementType.TRANSFER) {
+            val count = state.installmentCountText.toIntOrNull() ?: 0
+            if (count < 2) {
+                _message.value = "Digite pelo menos 2 parcelas."
+                return
+            }
+            count.coerceAtMost(99)
+        } else {
+            1
+        }
+
+        val baseMovement = when (state.type) {
             FinancialMovementType.INCOME -> {
                 if (state.accountId == null) {
                     _message.value = "Selecione a conta de destino."
@@ -141,12 +164,25 @@ class MovementsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            movementRepository.addMovement(movement)
-                .onSuccess {
-                    _form.value = MovementFormState(type = state.type)
-                    _message.value = "Movimentação salva."
-                }
-                .onFailure { _message.value = it.message ?: "Não foi possível salvar." }
+            val movementsToSave = if (installmentCount > 1) {
+                buildInstallments(baseMovement, installmentCount)
+            } else {
+                listOf(baseMovement)
+            }
+
+            var failureMessage: String? = null
+            movementsToSave.forEach { movement ->
+                movementRepository.addMovement(movement)
+                    .onFailure { failureMessage = it.message ?: "Não foi possível salvar." }
+                if (failureMessage != null) return@forEach
+            }
+
+            if (failureMessage == null) {
+                _form.value = MovementFormState(type = state.type)
+                _message.value = if (installmentCount > 1) "$installmentCount parcelas salvas." else "Movimentação salva."
+            } else {
+                _message.value = failureMessage
+            }
         }
     }
 
@@ -164,6 +200,16 @@ class MovementsViewModel @Inject constructor(
         FinancialMovementType.INCOME -> FinancialCategoryType.INCOME
         FinancialMovementType.EXPENSE -> FinancialCategoryType.EXPENSE
         else -> null
+    }
+
+    private fun buildInstallments(baseMovement: FinancialMovement, installmentCount: Int): List<FinancialMovement> {
+        return (1..installmentCount).map { installmentNumber ->
+            baseMovement.copy(
+                id = java.util.UUID.randomUUID().toString(),
+                date = baseMovement.date.plusMonths((installmentNumber - 1).toLong()),
+                description = "${baseMovement.description} ($installmentNumber/$installmentCount)"
+            )
+        }
     }
 
     private fun parseMoneyToCents(rawValue: String): Long {
