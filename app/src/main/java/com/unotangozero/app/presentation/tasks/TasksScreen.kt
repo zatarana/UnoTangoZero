@@ -111,6 +111,7 @@ fun TasksRoute(onOpenProjects: () -> Unit, viewModel: TasksViewModel = hiltViewM
             onEstimatedHoursChange = viewModel::onEstimatedHoursChange,
             onEstimatedMinutesChange = viewModel::onEstimatedMinutesChange,
             onTagsChange = viewModel::onTagsChange,
+            onSubtasksChange = viewModel::onSubtasksChange,
             onTagFilterChange = viewModel::onTagFilterChange,
             onSaveClick = viewModel::saveTaskFromEditor,
             onCancelEdit = viewModel::cancelEditing,
@@ -146,6 +147,7 @@ fun TasksScreen(
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
     onTagsChange: (String) -> Unit,
+    onSubtasksChange: (String) -> Unit,
     onTagFilterChange: (String?) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit,
@@ -212,6 +214,7 @@ fun TasksScreen(
                 onEstimatedHoursChange = onEstimatedHoursChange,
                 onEstimatedMinutesChange = onEstimatedMinutesChange,
                 onTagsChange = onTagsChange,
+                onSubtasksChange = onSubtasksChange,
                 onSaveClick = { onSaveClick(); isEditorOpen = false },
                 onCancelEdit = { onCancelEdit(); isEditorOpen = false }
             )
@@ -275,6 +278,7 @@ private fun TaskEditorSheet(
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
     onTagsChange: (String) -> Unit,
+    onSubtasksChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onCancelEdit: () -> Unit
 ) {
@@ -285,6 +289,15 @@ private fun TaskEditorSheet(
         TimeSelector(state.reminderHour, state.reminderMinute, onReminderTimeSelected)
         DurationFields(state, onEstimatedHoursChange, onEstimatedMinutesChange)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.tagsText, onValueChange = onTagsChange, label = { Text("Tags") }, placeholder = { Text("Ex: trabalho, casa, estudo") }, singleLine = true)
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = state.subtasksText,
+            onValueChange = onSubtasksChange,
+            label = { Text("Subtarefas") },
+            placeholder = { Text("Uma subtarefa por linha") },
+            minLines = 3,
+            maxLines = 6
+        )
         ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
         ChipSelector("Prioridade", Priority.entries, state.priority, { it.displayName }, onPriorityChange)
         ChipSelector("Recorrência", listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY), state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
@@ -398,6 +411,7 @@ private fun EmptyTasksCard(hasFilter: Boolean) {
 @Composable
 private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<String>, onStartEdit: (Task) -> Unit, onToggleTask: (Task) -> Unit, onDeleteTask: (Task) -> Unit) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val subtasks = remember(task.description) { extractSubtasks(task.description) }
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
@@ -407,6 +421,16 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
                 Text("${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (subtasks.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        subtasks.take(3).forEach { subtask ->
+                            Text("• $subtask", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (subtasks.size > 3) {
+                            Text("+${subtasks.size - 3} subtarefas", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
                 if (tags.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) } }
             }
             IconButton(onClick = { onStartEdit(task) }) { Icon(Icons.Default.Edit, contentDescription = "Editar tarefa") }
@@ -416,6 +440,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
 }
 
 private val weekDaysPtBr = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+private const val SUBTASKS_MARKER = "[[SUBTAREFAS]]"
 
 private fun DayOfWeek.shortPtBr(): String = when (this) {
     DayOfWeek.MONDAY -> "Seg"
@@ -425,6 +450,16 @@ private fun DayOfWeek.shortPtBr(): String = when (this) {
     DayOfWeek.FRIDAY -> "Sex"
     DayOfWeek.SATURDAY -> "Sáb"
     DayOfWeek.SUNDAY -> "Dom"
+}
+
+private fun extractSubtasks(description: String?): List<String> {
+    if (description.isNullOrBlank()) return emptyList()
+    val markerIndex = description.indexOf(SUBTASKS_MARKER)
+    if (markerIndex < 0) return emptyList()
+    return description.substring(markerIndex + SUBTASKS_MARKER.length)
+        .lines()
+        .map { it.trim().trimStart('-', '•').trim() }
+        .filter { it.isNotBlank() }
 }
 
 private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
