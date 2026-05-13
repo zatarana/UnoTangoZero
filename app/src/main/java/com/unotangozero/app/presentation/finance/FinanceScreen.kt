@@ -43,6 +43,7 @@ fun FinanceRoute(
     onOpenMovements: () -> Unit,
     onOpenBudget: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenDebts: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
     onOpenReconciliation: () -> Unit,
@@ -56,6 +57,7 @@ fun FinanceRoute(
         onOpenMovements = onOpenMovements,
         onOpenBudget = onOpenBudget,
         onOpenGoals = onOpenGoals,
+        onOpenDebts = onOpenDebts,
         onOpenReports = onOpenReports,
         onOpenProjection = onOpenProjection,
         onOpenReconciliation = onOpenReconciliation,
@@ -70,6 +72,7 @@ fun FinanceScreen(
     onOpenMovements: () -> Unit,
     onOpenBudget: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenDebts: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
     onOpenReconciliation: () -> Unit,
@@ -84,12 +87,12 @@ fun FinanceScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Resumo do seu dinheiro, orçamento, lançamentos e projeções.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Resumo do seu dinheiro, orçamento, dívidas, lançamentos e projeções.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { BalanceHeroCard(uiState, onOpenAccounts) }
-            item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenReconciliation, onOpenCategories) }
+            item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenDebts, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
             item { RecentMovementsCard(uiState, onOpenMovements) }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
@@ -126,6 +129,7 @@ private fun FinanceQuickAccessRow(
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenDebts: () -> Unit,
     onOpenReconciliation: () -> Unit,
     onOpenCategories: () -> Unit
 ) {
@@ -135,6 +139,7 @@ private fun FinanceQuickAccessRow(
         item { FilterChip(selected = false, onClick = onOpenReports, label = { Text("Relatórios") }) }
         item { FilterChip(selected = false, onClick = onOpenProjection, label = { Text("Projeção") }) }
         item { FilterChip(selected = false, onClick = onOpenGoals, label = { Text("Metas") }) }
+        item { FilterChip(selected = false, onClick = onOpenDebts, label = { Text("Dívidas") }) }
         item { FilterChip(selected = false, onClick = onOpenReconciliation, label = { Text("Reconciliar") }) }
         item { FilterChip(selected = false, onClick = onOpenCategories, label = { Text("Categorias") }) }
     }
