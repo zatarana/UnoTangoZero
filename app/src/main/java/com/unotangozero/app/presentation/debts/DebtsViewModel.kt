@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.round
 
@@ -143,7 +145,13 @@ class DebtsViewModel @Inject constructor(
         }
     }
 
-    fun markAsPaid(debt: Debt) {
+    fun markAsPaid(debt: Debt, finalPaidAmountText: String) {
+        val finalPaidAmountInCents = parseMoneyToCents(finalPaidAmountText)
+        if (finalPaidAmountInCents <= 0L) {
+            _message.value = "Digite o valor final pago."
+            return
+        }
+
         viewModelScope.launch {
             val paidDebt = debt.copy(
                 remainingAmountInCents = 0L,
@@ -153,7 +161,7 @@ class DebtsViewModel @Inject constructor(
                 updatedAt = LocalDateTime.now()
             )
             debtRepository.save(paidDebt)
-                .onSuccess { _message.value = "Dívida marcada como paga." }
+                .onSuccess { _message.value = buildPayoffMessage(debt.remainingAmountInCents, finalPaidAmountInCents) }
                 .onFailure { _message.value = it.message ?: "Não foi possível quitar a dívida." }
         }
     }
@@ -181,7 +189,20 @@ class DebtsViewModel @Inject constructor(
         return round(amount * 100).toLong()
     }
 
+    private fun buildPayoffMessage(expectedAmountInCents: Long, finalPaidAmountInCents: Long): String {
+        val difference = expectedAmountInCents - finalPaidAmountInCents
+        return when {
+            difference > 0L -> "Dívida quitada. Economia de ${formatMoney(difference)}."
+            difference < 0L -> "Dívida quitada. Juros/acréscimo de ${formatMoney(-difference)}."
+            else -> "Dívida quitada pelo valor previsto."
+        }
+    }
+
     private fun centsToMoneyText(amountInCents: Long): String {
         return "%.2f".format(amountInCents / 100.0).replace('.', ',')
+    }
+
+    private fun formatMoney(amountInCents: Long): String {
+        return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(amountInCents / 100.0)
     }
 }
