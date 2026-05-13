@@ -74,6 +74,10 @@ class DebtsViewModel @Inject constructor(
         _editorState.value = _editorState.value.copy(dueDate = _editorState.value.dueDate.plusDays(1))
     }
 
+    fun onDueDateSelected(date: LocalDate) {
+        _editorState.value = _editorState.value.copy(dueDate = date)
+    }
+
     fun startEditing(debt: Debt) {
         _editorState.value = DebtEditorUiState(
             editingDebt = debt,
