@@ -94,6 +94,7 @@ fun FinanceScreen(
             item { BalanceHeroCard(uiState, onOpenAccounts) }
             item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenDebts, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
+            item { FinanceDebtsPreviewCard(onOpenDebts) }
             item { RecentMovementsCard(uiState, onOpenMovements) }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
             item { ProjectionPreviewCard(uiState, onOpenProjection) }
