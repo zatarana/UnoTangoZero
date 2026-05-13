@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -49,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.enums.HabitFrequency
 import com.unotangozero.app.domain.models.Habit
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -118,6 +118,7 @@ fun HabitsScreen(
             }
 
             item { HabitSummaryCard(habits = habits) }
+            item { TodayHabitCard(habits = habits) }
             item { HabitGuidanceCard() }
 
             item {
@@ -180,6 +181,23 @@ private fun HabitSummaryCard(habits: List<Habit>) {
             Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${habits.size}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
             Text("hábitos ativos • $daily diário(s) • $weekly semanal(is) • $monthly mensal(is)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun TodayHabitCard(habits: List<Habit>) {
+    val daily = habits.count { it.frequency == HabitFrequency.DAILY }
+    val weekly = habits.count { it.frequency == HabitFrequency.WEEKLY }
+    val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Hoje", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text(today, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("$daily hábito(s) diário(s) para manter constância", fontWeight = FontWeight.Bold)
+            Text("$weekly hábito(s) semanal(is) para acompanhar ao longo da semana", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Toque em Marcar hoje no card do hábito quando cumprir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -293,13 +311,12 @@ private fun HabitCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Button(onClick = { onCompleteToday(habit) }) {
+                    Text("Marcar hoje")
+                }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(onClick = { onCompleteToday(habit) }) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Marcar hábito hoje")
-            }
 
             IconButton(onClick = { onDeleteHabit(habit) }) {
                 Icon(Icons.Default.Delete, contentDescription = "Excluir hábito")
