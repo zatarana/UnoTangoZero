@@ -166,7 +166,7 @@ class TasksViewModel @Inject constructor(
                 reminderScheduler.cancel(task.id)
                 if (!task.isCompleted) scheduleReminderIfEnabled(task, state.reminderHour, state.reminderMinute)
                 resetEditor(state.reminderHour, state.reminderMinute)
-                _message.value = if (state.isEditing) "Tarefa atualizada." else "Tarefa criada."
+                _message.value = buildTaskSavedMessage(state.isEditing)
             }.onFailure { _message.value = it.message ?: "Não foi possível salvar a tarefa." }
         }
     }
@@ -211,6 +211,15 @@ class TasksViewModel @Inject constructor(
     }
 
     private fun parseTags(raw: String): List<String> = raw.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }.distinct()
+
+    private fun buildTaskSavedMessage(isEditing: Boolean): String {
+        val baseMessage = if (isEditing) "Tarefa atualizada." else "Tarefa criada."
+        return if (reminderScheduler.canScheduleExactAlarms()) {
+            baseMessage
+        } else {
+            "$baseMessage O Android não liberou alarmes exatos; o lembrete pode não tocar no minuto exato."
+        }
+    }
 
     private suspend fun scheduleReminderIfEnabled(task: Task) {
         val settings = settingsRepository.settings.first()
