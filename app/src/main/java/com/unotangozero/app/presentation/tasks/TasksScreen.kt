@@ -61,6 +61,7 @@ import com.unotangozero.app.domain.enums.Priority
 import com.unotangozero.app.domain.enums.RecurrenceType
 import com.unotangozero.app.domain.enums.TaskCategory
 import com.unotangozero.app.domain.models.Task
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -105,6 +106,8 @@ fun TasksRoute(onOpenProjects: () -> Unit, viewModel: TasksViewModel = hiltViewM
             onCategoryChange = viewModel::onCategoryChange,
             onPriorityChange = viewModel::onPriorityChange,
             onRecurrenceTypeChange = viewModel::onRecurrenceTypeChange,
+            onWeeklyDaySelected = viewModel::onWeeklyDaySelected,
+            onMonthlyDaySelected = viewModel::onMonthlyDaySelected,
             onEstimatedHoursChange = viewModel::onEstimatedHoursChange,
             onEstimatedMinutesChange = viewModel::onEstimatedMinutesChange,
             onTagsChange = viewModel::onTagsChange,
@@ -138,6 +141,8 @@ fun TasksScreen(
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
+    onWeeklyDaySelected: (DayOfWeek) -> Unit,
+    onMonthlyDaySelected: (Int) -> Unit,
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
     onTagsChange: (String) -> Unit,
@@ -150,7 +155,6 @@ fun TasksScreen(
 ) {
     var isEditorOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     LaunchedEffect(editorState.isEditing) { if (editorState.isEditing) isEditorOpen = true }
 
     val allTags = remember(taskTags) { taskTags.values.flatten().distinct().sorted() }
@@ -172,11 +176,8 @@ fun TasksScreen(
             }
             item { TaskQuickActionsCard(onOpenProjects) }
             if (allTags.isNotEmpty()) item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
-            if (filteredTasks.isEmpty()) {
-                item { EmptyTasksCard(hasFilter = selectedTag != null) }
-            } else {
-                item { TaskCategoryKanbanBoard(filteredTasks, taskDurations, taskTags, onStartEdit, onToggleTask, onDeleteTask) }
-            }
+            if (filteredTasks.isEmpty()) item { EmptyTasksCard(hasFilter = selectedTag != null) }
+            else item { TaskCategoryKanbanBoard(filteredTasks, taskDurations, taskTags, onStartEdit, onToggleTask, onDeleteTask) }
         }
 
         FloatingActionButton(
@@ -189,10 +190,7 @@ fun TasksScreen(
 
     if (isEditorOpen) {
         ModalBottomSheet(
-            onDismissRequest = {
-                onCancelEdit()
-                isEditorOpen = false
-            },
+            onDismissRequest = { onCancelEdit(); isEditorOpen = false },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.background
         ) {
@@ -209,17 +207,13 @@ fun TasksScreen(
                 onCategoryChange = onCategoryChange,
                 onPriorityChange = onPriorityChange,
                 onRecurrenceTypeChange = onRecurrenceTypeChange,
+                onWeeklyDaySelected = onWeeklyDaySelected,
+                onMonthlyDaySelected = onMonthlyDaySelected,
                 onEstimatedHoursChange = onEstimatedHoursChange,
                 onEstimatedMinutesChange = onEstimatedMinutesChange,
                 onTagsChange = onTagsChange,
-                onSaveClick = {
-                    onSaveClick()
-                    isEditorOpen = false
-                },
-                onCancelEdit = {
-                    onCancelEdit()
-                    isEditorOpen = false
-                }
+                onSaveClick = { onSaveClick(); isEditorOpen = false },
+                onCancelEdit = { onCancelEdit(); isEditorOpen = false }
             )
         }
     }
@@ -276,6 +270,8 @@ private fun TaskEditorSheet(
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
+    onWeeklyDaySelected: (DayOfWeek) -> Unit,
+    onMonthlyDaySelected: (Int) -> Unit,
     onEstimatedHoursChange: (String) -> Unit,
     onEstimatedMinutesChange: (String) -> Unit,
     onTagsChange: (String) -> Unit,
@@ -292,8 +288,33 @@ private fun TaskEditorSheet(
         ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
         ChipSelector("Prioridade", Priority.entries, state.priority, { it.displayName }, onPriorityChange)
         ChipSelector("Recorrência", listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY), state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
+        RecurrenceDetailsSelector(state, onWeeklyDaySelected, onMonthlyDaySelected)
         Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveClick) { Text(if (state.isEditing) "Salvar alterações" else "Adicionar") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar") }
+    }
+}
+
+@Composable
+private fun RecurrenceDetailsSelector(state: TaskEditorUiState, onWeeklyDaySelected: (DayOfWeek) -> Unit, onMonthlyDaySelected: (Int) -> Unit) {
+    when (state.recurrenceType) {
+        RecurrenceType.WEEKLY -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Dia da semana", style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(weekDaysPtBr) { day ->
+                    FilterChip(selected = state.dueDate.dayOfWeek == day, onClick = { onWeeklyDaySelected(day) }, label = { Text(day.shortPtBr()) })
+                }
+            }
+        }
+        RecurrenceType.MONTHLY -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Dia do mês", style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items((1..31).toList()) { day ->
+                    FilterChip(selected = state.dueDate.dayOfMonth == day, onClick = { onMonthlyDaySelected(day) }, label = { Text(day.toString()) })
+                }
+            }
+            Text("Se o mês não tiver o dia escolhido, será usado o último dia válido.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        else -> Unit
     }
 }
 
@@ -312,19 +333,12 @@ private fun TimeSelector(hour: Int, minute: Int, onTimeSelected: (Int, Int) -> U
     val timePickerState = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Horário do lembrete", style = MaterialTheme.typography.labelLarge)
-        Button(onClick = { isTimeOpen = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("%02d:%02d".format(Locale("pt", "BR"), hour, minute))
-        }
+        Button(onClick = { isTimeOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("%02d:%02d".format(Locale("pt", "BR"), hour, minute)) }
     }
     if (isTimeOpen) {
         AlertDialog(
             onDismissRequest = { isTimeOpen = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    onTimeSelected(timePickerState.hour, timePickerState.minute)
-                    isTimeOpen = false
-                }) { Text("Selecionar") }
-            },
+            confirmButton = { TextButton(onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute); isTimeOpen = false }) { Text("Selecionar") } },
             dismissButton = { TextButton(onClick = { isTimeOpen = false }) { Text("Cancelar") } },
             text = { TimePicker(state = timePickerState) }
         )
@@ -399,6 +413,18 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
             IconButton(onClick = { onDeleteTask(task) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir tarefa") }
         }
     }
+}
+
+private val weekDaysPtBr = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+
+private fun DayOfWeek.shortPtBr(): String = when (this) {
+    DayOfWeek.MONDAY -> "Seg"
+    DayOfWeek.TUESDAY -> "Ter"
+    DayOfWeek.WEDNESDAY -> "Qua"
+    DayOfWeek.THURSDAY -> "Qui"
+    DayOfWeek.FRIDAY -> "Sex"
+    DayOfWeek.SATURDAY -> "Sáb"
+    DayOfWeek.SUNDAY -> "Dom"
 }
 
 private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
