@@ -112,12 +112,13 @@ fun HabitsScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Rastreador", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Marque seus hábitos e acompanhe a constância.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Hábitos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Rastreie constância. Use tarefas recorrentes para compromissos com prazo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { HabitSummaryCard(habits = habits) }
+            item { HabitGuidanceCard() }
 
             item {
                 Text("Hábitos ativos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
@@ -173,11 +174,23 @@ fun HabitsScreen(
 private fun HabitSummaryCard(habits: List<Habit>) {
     val daily = habits.count { it.frequency == HabitFrequency.DAILY }
     val weekly = habits.count { it.frequency == HabitFrequency.WEEKLY }
+    val monthly = habits.count { it.frequency == HabitFrequency.MONTHLY }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${habits.size}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-            Text("hábitos ativos • $daily diário(s) • $weekly semanal(is)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("hábitos ativos • $daily diário(s) • $weekly semanal(is) • $monthly mensal(is)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun HabitGuidanceCard() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Como usar hábitos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("Hábito é rastreador de constância: beber água, caminhar, meditar, ler um pouco.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Tarefa recorrente é para algo com execução e prazo: pagar conta, entregar relatório, estudar um tópico específico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -195,11 +208,13 @@ private fun HabitFormSheet(
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Novo hábito", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text("Crie aqui hábitos que você quer marcar ao longo do tempo, sem transformar tudo em tarefa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = name,
             onValueChange = onNameChange,
             label = { Text("Nome do hábito") },
+            placeholder = { Text("Ex: Caminhar, ler, beber água") },
             singleLine = true
         )
         OutlinedTextField(
@@ -207,6 +222,7 @@ private fun HabitFormSheet(
             value = description,
             onValueChange = onDescriptionChange,
             label = { Text("Descrição opcional") },
+            placeholder = { Text("Ex: Meta leve, observação ou regra pessoal") },
             minLines = 2
         )
         Text("Frequência", style = MaterialTheme.typography.labelLarge)
@@ -232,7 +248,7 @@ private fun EmptyHabitsCard() {
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Nenhum hábito ativo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Toque no + para criar um hábito e iniciar seu rastreamento.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Toque no + para criar um hábito de acompanhamento. Para compromissos com data e prazo, use Tarefas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -272,7 +288,7 @@ private fun HabitCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AssistChip(onClick = {}, label = { Text(habit.frequency.displayName) })
                     Text(
-                        text = habit.createdAt.format(formatter),
+                        text = "Criado em ${habit.createdAt.format(formatter)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -282,7 +298,7 @@ private fun HabitCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(onClick = { onCompleteToday(habit) }) {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Concluir hoje")
+                Icon(Icons.Default.CheckCircle, contentDescription = "Marcar hábito hoje")
             }
 
             IconButton(onClick = { onDeleteHabit(habit) }) {
