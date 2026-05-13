@@ -150,22 +150,12 @@ fun ProjectsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Projetos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Organize tarefas maiores por projeto, seção e progresso.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Abra um projeto e organize suas entregas em um Kanban simples.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             if (projects.isNotEmpty()) {
-                item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(projects, key = { it.id }) { project ->
-                            FilterChip(
-                                selected = selectedProjectId == project.id,
-                                onClick = { onSelectProject(project.id) },
-                                label = { Text(project.title) }
-                            )
-                        }
-                    }
-                }
+                item { ProjectOverviewRow(projects, selectedProjectId, onSelectProject) }
             }
 
             if (selectedProject == null) {
@@ -182,16 +172,7 @@ fun ProjectsScreen(
                 if (selectedProject.totalTasks == 0 && selectedProject.sections.isEmpty()) {
                     item { EmptyProjectContentCard() }
                 } else {
-                    if (selectedProject.tasks.isNotEmpty()) {
-                        item { Text("Sem seção", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold) }
-                        items(selectedProject.tasks, key = { it.id }) { task ->
-                            ProjectTaskCard(projectId = selectedProject.id, task = task, onToggleTask = onToggleTask)
-                        }
-                    }
-
-                    items(selectedProject.sections, key = { it.id }) { section ->
-                        ProjectSectionCard(projectId = selectedProject.id, section = section, onToggleSection = onToggleSection, onToggleTask = onToggleTask)
-                    }
+                    item { ProjectKanbanBoard(selectedProject, onToggleSection, onToggleTask) }
                 }
             }
         }
@@ -258,10 +239,88 @@ fun ProjectsScreen(
 }
 
 @Composable
+private fun ProjectOverviewRow(projects: List<Project>, selectedProjectId: String?, onSelectProject: (String) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(projects, key = { it.id }) { project ->
+            ProjectOverviewCard(
+                project = project,
+                isSelected = selectedProjectId == project.id,
+                onClick = { onSelectProject(project.id) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProjectOverviewCard(project: Project, isSelected: Boolean, onClick: () -> Unit) {
+    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(260.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(project.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("${project.completedTasks}/${project.totalTasks} tarefas • ${project.progressPercent}%", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LinearProgressIndicator(progress = { project.progressPercent / 100f }, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
 private fun ProjectActionsRow(onNewSection: () -> Unit, onNewTask: () -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         item { FilterChip(selected = false, onClick = onNewSection, label = { Text("Nova seção") }) }
         item { FilterChip(selected = false, onClick = onNewTask, label = { Text("Nova tarefa") }) }
+    }
+}
+
+@Composable
+private fun ProjectKanbanBoard(project: Project, onToggleSection: (String, String) -> Unit, onToggleTask: (String, String) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (project.tasks.isNotEmpty()) {
+            item(key = "backlog-${project.id}") {
+                ProjectBacklogColumn(projectId = project.id, tasks = project.tasks, onToggleTask = onToggleTask)
+            }
+        }
+        items(project.sections, key = { it.id }) { section ->
+            ProjectSectionColumn(projectId = project.id, section = section, onToggleSection = onToggleSection, onToggleTask = onToggleTask)
+        }
+    }
+}
+
+@Composable
+private fun ProjectBacklogColumn(projectId: String, tasks: List<ProjectTask>, onToggleTask: (String, String) -> Unit) {
+    Card(modifier = Modifier.width(300.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Sem seção", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("${tasks.count { it.isCompleted }}/${tasks.size} concluídas", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            tasks.forEach { task -> ProjectTaskCard(projectId = projectId, task = task, onToggleTask = onToggleTask) }
+        }
+    }
+}
+
+@Composable
+private fun ProjectSectionColumn(projectId: String, section: ProjectSection, onToggleSection: (String, String) -> Unit, onToggleTask: (String, String) -> Unit) {
+    Card(modifier = Modifier.width(300.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("${section.completedTasks}/${section.totalTasks} concluídas", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { onToggleSection(projectId, section.id) }) {
+                    Icon(if (section.isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess, contentDescription = "Recolher seção")
+                }
+            }
+            if (!section.isCollapsed) {
+                if (section.tasks.isEmpty()) {
+                    Text("Nenhuma tarefa nesta seção.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    section.tasks.forEach { task -> ProjectTaskCard(projectId = projectId, task = task, onToggleTask = onToggleTask) }
+                }
+            }
+        }
     }
 }
 
@@ -292,7 +351,7 @@ private fun ProjectFormSheet(
 private fun SectionFormSheet(sectionTitle: String, onSectionTitleChange: (String) -> Unit, onCreateSection: () -> Unit, onClose: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Nova seção", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = sectionTitle, onValueChange = onSectionTitleChange, label = { Text("Cabeçalho da seção") }, singleLine = true)
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = sectionTitle, onValueChange = onSectionTitleChange, label = { Text("Nome da coluna do Kanban") }, placeholder = { Text("Ex: A fazer, Em andamento, Concluído") }, singleLine = true)
         Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateSection) { Text("Criar seção") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
     }
@@ -323,30 +382,6 @@ private fun SectionPicker(project: Project, selectedSectionId: String?, onSelect
         item { FilterChip(selected = selectedSectionId == null, onClick = { onSelectSection(null) }, label = { Text("Sem seção") }) }
         items(project.sections, key = { it.id }) { section ->
             FilterChip(selected = selectedSectionId == section.id, onClick = { onSelectSection(section.id) }, label = { Text(section.title) })
-        }
-    }
-}
-
-@Composable
-private fun ProjectSectionCard(projectId: String, section: ProjectSection, onToggleSection: (String, String) -> Unit, onToggleTask: (String, String) -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text(section.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                    Text("${section.completedTasks}/${section.totalTasks} concluídas", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                IconButton(onClick = { onToggleSection(projectId, section.id) }) {
-                    Icon(if (section.isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess, contentDescription = "Recolher seção")
-                }
-            }
-            if (!section.isCollapsed) {
-                if (section.tasks.isEmpty()) {
-                    Text("Nenhuma tarefa nesta seção.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    section.tasks.forEach { task -> ProjectTaskCard(projectId = projectId, task = task, onToggleTask = onToggleTask) }
-                }
-            }
         }
     }
 }
@@ -396,7 +431,7 @@ private fun ProjectTaskCard(projectId: String, task: ProjectTask, onToggleTask: 
 private fun EmptyProjectCard() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Text(
-            text = "Nenhum projeto selecionado. Toque no + para criar um projeto.",
+            text = "Nenhum projeto selecionado. Toque no + para criar um projeto ou escolha um card acima.",
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -407,7 +442,7 @@ private fun EmptyProjectCard() {
 private fun EmptyProjectContentCard() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Text(
-            text = "Este projeto ainda não tem seções ou tarefas. Use os atalhos acima para começar.",
+            text = "Este projeto ainda não tem colunas ou tarefas. Crie uma seção para montar o Kanban ou adicione uma tarefa solta.",
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
