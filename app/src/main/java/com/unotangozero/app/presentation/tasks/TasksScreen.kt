@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -39,8 +40,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,12 +65,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
-fun TasksRoute(
-    onOpenProjects: () -> Unit,
-    viewModel: TasksViewModel = hiltViewModel()
-) {
+fun TasksRoute(onOpenProjects: () -> Unit, viewModel: TasksViewModel = hiltViewModel()) {
     val tasks by viewModel.tasks.collectAsState()
     val taskDurations by viewModel.taskDurations.collectAsState()
     val taskTags by viewModel.taskTags.collectAsState()
@@ -100,6 +101,7 @@ fun TasksRoute(
             onDueDateToday = viewModel::onDueDateToday,
             onDueDateTomorrow = viewModel::onDueDateTomorrow,
             onDueDateNextWeek = viewModel::onDueDateNextWeek,
+            onReminderTimeSelected = viewModel::onReminderTimeSelected,
             onCategoryChange = viewModel::onCategoryChange,
             onPriorityChange = viewModel::onPriorityChange,
             onRecurrenceTypeChange = viewModel::onRecurrenceTypeChange,
@@ -132,6 +134,7 @@ fun TasksScreen(
     onDueDateToday: () -> Unit,
     onDueDateTomorrow: () -> Unit,
     onDueDateNextWeek: () -> Unit,
+    onReminderTimeSelected: (Int, Int) -> Unit,
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
@@ -148,9 +151,7 @@ fun TasksScreen(
     var isEditorOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    LaunchedEffect(editorState.isEditing) {
-        if (editorState.isEditing) isEditorOpen = true
-    }
+    LaunchedEffect(editorState.isEditing) { if (editorState.isEditing) isEditorOpen = true }
 
     val allTags = remember(taskTags) { taskTags.values.flatten().distinct().sorted() }
     val filteredTasks = remember(tasks, taskTags, selectedTag) {
@@ -169,26 +170,12 @@ fun TasksScreen(
                     Text("Visualize suas tarefas em colunas por categoria.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
             item { TaskQuickActionsCard(onOpenProjects) }
-
-            if (allTags.isNotEmpty()) {
-                item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
-            }
-
+            if (allTags.isNotEmpty()) item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
             if (filteredTasks.isEmpty()) {
                 item { EmptyTasksCard(hasFilter = selectedTag != null) }
             } else {
-                item {
-                    TaskCategoryKanbanBoard(
-                        tasks = filteredTasks,
-                        taskDurations = taskDurations,
-                        taskTags = taskTags,
-                        onStartEdit = onStartEdit,
-                        onToggleTask = onToggleTask,
-                        onDeleteTask = onDeleteTask
-                    )
-                }
+                item { TaskCategoryKanbanBoard(filteredTasks, taskDurations, taskTags, onStartEdit, onToggleTask, onDeleteTask) }
             }
         }
 
@@ -197,9 +184,7 @@ fun TasksScreen(
             modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Nova tarefa")
-        }
+        ) { Icon(Icons.Default.Add, contentDescription = "Nova tarefa") }
     }
 
     if (isEditorOpen) {
@@ -220,6 +205,7 @@ fun TasksScreen(
                 onDueDateToday = onDueDateToday,
                 onDueDateTomorrow = onDueDateTomorrow,
                 onDueDateNextWeek = onDueDateNextWeek,
+                onReminderTimeSelected = onReminderTimeSelected,
                 onCategoryChange = onCategoryChange,
                 onPriorityChange = onPriorityChange,
                 onRecurrenceTypeChange = onRecurrenceTypeChange,
@@ -249,61 +235,21 @@ private fun TaskQuickActionsCard(onOpenProjects: () -> Unit) {
 }
 
 @Composable
-private fun TaskCategoryKanbanBoard(
-    tasks: List<Task>,
-    taskDurations: Map<String, Int>,
-    taskTags: Map<String, List<String>>,
-    onStartEdit: (Task) -> Unit,
-    onToggleTask: (Task) -> Unit,
-    onDeleteTask: (Task) -> Unit
-) {
-    val groupedTasks = remember(tasks) {
-        tasks.groupBy { it.category }.toSortedMap(compareBy { it.displayName })
-    }
-
+private fun TaskCategoryKanbanBoard(tasks: List<Task>, taskDurations: Map<String, Int>, taskTags: Map<String, List<String>>, onStartEdit: (Task) -> Unit, onToggleTask: (Task) -> Unit, onDeleteTask: (Task) -> Unit) {
+    val groupedTasks = remember(tasks) { tasks.groupBy { it.category }.toSortedMap(compareBy { it.displayName }) }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         groupedTasks.forEach { (category, categoryTasks) ->
-            item(key = category.name) {
-                TaskCategoryColumn(
-                    category = category,
-                    tasks = categoryTasks,
-                    taskDurations = taskDurations,
-                    taskTags = taskTags,
-                    onStartEdit = onStartEdit,
-                    onToggleTask = onToggleTask,
-                    onDeleteTask = onDeleteTask
-                )
-            }
+            item(key = category.name) { TaskCategoryColumn(category, categoryTasks, taskDurations, taskTags, onStartEdit, onToggleTask, onDeleteTask) }
         }
     }
 }
 
 @Composable
-private fun TaskCategoryColumn(
-    category: TaskCategory,
-    tasks: List<Task>,
-    taskDurations: Map<String, Int>,
-    taskTags: Map<String, List<String>>,
-    onStartEdit: (Task) -> Unit,
-    onToggleTask: (Task) -> Unit,
-    onDeleteTask: (Task) -> Unit
-) {
-    Card(
-        modifier = Modifier.width(320.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
+private fun TaskCategoryColumn(category: TaskCategory, tasks: List<Task>, taskDurations: Map<String, Int>, taskTags: Map<String, List<String>>, onStartEdit: (Task) -> Unit, onToggleTask: (Task) -> Unit, onDeleteTask: (Task) -> Unit) {
+    Card(modifier = Modifier.width(320.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("${category.displayName} (${tasks.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-            tasks.forEach { task ->
-                TaskCard(
-                    task = task,
-                    estimatedDurationMinutes = taskDurations[task.id] ?: task.estimatedDurationMinutes,
-                    tags = taskTags[task.id].orEmpty(),
-                    onStartEdit = onStartEdit,
-                    onToggleTask = onToggleTask,
-                    onDeleteTask = onDeleteTask
-                )
-            }
+            tasks.forEach { task -> TaskCard(task, taskDurations[task.id] ?: task.estimatedDurationMinutes, taskTags[task.id].orEmpty(), onStartEdit, onToggleTask, onDeleteTask) }
         }
     }
 }
@@ -326,6 +272,7 @@ private fun TaskEditorSheet(
     onDueDateToday: () -> Unit,
     onDueDateTomorrow: () -> Unit,
     onDueDateNextWeek: () -> Unit,
+    onReminderTimeSelected: (Int, Int) -> Unit,
     onCategoryChange: (TaskCategory) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onRecurrenceTypeChange: (RecurrenceType) -> Unit,
@@ -339,12 +286,12 @@ private fun TaskEditorSheet(
         Text(if (state.isEditing) "Editar tarefa" else "Nova tarefa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.title, onValueChange = onTitleChange, label = { Text("Digite uma tarefa...") }, singleLine = true)
         DateSelector(state.dueDate, onDueDatePreviousDay, onDueDateNextDay, onDueDateSelected, onDueDateToday, onDueDateTomorrow, onDueDateNextWeek)
+        TimeSelector(state.reminderHour, state.reminderMinute, onReminderTimeSelected)
         DurationFields(state, onEstimatedHoursChange, onEstimatedMinutesChange)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.tagsText, onValueChange = onTagsChange, label = { Text("Tags") }, placeholder = { Text("Ex: trabalho, casa, estudo") }, singleLine = true)
         ChipSelector("Categoria", TaskCategory.entries, state.category, { it.displayName }, onCategoryChange)
         ChipSelector("Prioridade", Priority.entries, state.priority, { it.displayName }, onPriorityChange)
-        val recurrenceOptions = listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY)
-        ChipSelector("Recorrência", recurrenceOptions, state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
+        ChipSelector("Recorrência", listOf(RecurrenceType.NONE, RecurrenceType.DAILY, RecurrenceType.WEEKLY, RecurrenceType.MONTHLY, RecurrenceType.YEARLY), state.recurrenceType, { it.displayName }, onRecurrenceTypeChange)
         Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveClick) { Text(if (state.isEditing) "Salvar alterações" else "Adicionar") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onCancelEdit) { Text("Cancelar") }
     }
@@ -360,25 +307,39 @@ private fun DurationFields(state: TaskEditorUiState, onEstimatedHoursChange: (St
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateSelector(
-    date: LocalDate,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onDateSelected: (LocalDate) -> Unit,
-    onToday: () -> Unit,
-    onTomorrow: () -> Unit,
-    onNextWeek: () -> Unit
-) {
+private fun TimeSelector(hour: Int, minute: Int, onTimeSelected: (Int, Int) -> Unit) {
+    var isTimeOpen by remember { mutableStateOf(false) }
+    val timePickerState = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Horário do lembrete", style = MaterialTheme.typography.labelLarge)
+        Button(onClick = { isTimeOpen = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("%02d:%02d".format(Locale("pt", "BR"), hour, minute))
+        }
+    }
+    if (isTimeOpen) {
+        AlertDialog(
+            onDismissRequest = { isTimeOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onTimeSelected(timePickerState.hour, timePickerState.minute)
+                    isTimeOpen = false
+                }) { Text("Selecionar") }
+            },
+            dismissButton = { TextButton(onClick = { isTimeOpen = false }) { Text("Cancelar") } },
+            text = { TimePicker(state = timePickerState) }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateSelector(date: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit, onDateSelected: (LocalDate) -> Unit, onToday: () -> Unit, onTomorrow: () -> Unit, onNextWeek: () -> Unit) {
     var isCalendarOpen by remember { mutableStateOf(false) }
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date.toEpochMillis())
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Data", style = MaterialTheme.typography.labelLarge)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Dia anterior") }
@@ -393,24 +354,12 @@ private fun DateSelector(
             }
         }
     }
-
     if (isCalendarOpen) {
         DatePickerDialog(
             onDismissRequest = { isCalendarOpen = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { millis -> onDateSelected(millis.toLocalDate()) }
-                        isCalendarOpen = false
-                    }
-                ) { Text("Selecionar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            confirmButton = { TextButton(onClick = { datePickerState.selectedDateMillis?.let { millis -> onDateSelected(millis.toLocalDate()) }; isCalendarOpen = false }) { Text("Selecionar") } },
+            dismissButton = { TextButton(onClick = { isCalendarOpen = false }) { Text("Cancelar") } }
+        ) { DatePicker(state = datePickerState) }
     }
 }
 
@@ -418,9 +367,7 @@ private fun DateSelector(
 private fun <T> ChipSelector(title: String, options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(options) { option -> FilterChip(selected = selected == option, onClick = { onSelect(option) }, label = { Text(label(option)) }) }
-        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(options) { option -> FilterChip(selected = selected == option, onClick = { onSelect(option) }, label = { Text(label(option)) }) } }
     }
 }
 
@@ -446,9 +393,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
                 Text("${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (tags.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) } }
-                }
+                if (tags.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { items(tags) { tag -> AssistChip(onClick = {}, label = { Text("#$tag") }) } }
             }
             IconButton(onClick = { onStartEdit(task) }) { Icon(Icons.Default.Edit, contentDescription = "Editar tarefa") }
             IconButton(onClick = { onDeleteTask(task) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir tarefa") }
@@ -457,9 +402,7 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
 }
 
 private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
 private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
-
 private fun formatDuration(totalMinutes: Int): String {
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
