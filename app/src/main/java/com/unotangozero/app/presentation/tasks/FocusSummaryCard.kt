@@ -50,6 +50,16 @@ fun FocusSummaryCard(
     val topEntry = visibleTotals.maxByOrNull { it.value }
     val topTask = topEntry?.let { entry -> tasks.firstOrNull { it.id == entry.key } }
     val activeTasksWithFocus = visibleTotals.count { it.value > 0 }
+    val categoryTotals = remember(tasks, visibleTotals) {
+        tasks.mapNotNull { task ->
+            val seconds = visibleTotals[task.id] ?: 0
+            if (seconds > 0) task.category.displayName to seconds else null
+        }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { entry -> entry.value.sum() }
+            .toList()
+            .sortedByDescending { it.second }
+    }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -71,6 +81,17 @@ fun FocusSummaryCard(
                 Text("Tempo nela: ${formatFocusCompact(topEntry.value)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val progress = if (totalSeconds > 0) topEntry.value.toFloat() / totalSeconds.toFloat() else 0f
                 LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                if (categoryTotals.isNotEmpty()) {
+                    Text("Por categoria", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                    categoryTotals.take(3).forEach { (category, seconds) ->
+                        val categoryProgress = if (totalSeconds > 0) seconds.toFloat() / totalSeconds.toFloat() else 0f
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(category, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatFocusCompact(seconds), fontWeight = FontWeight.Bold)
+                        }
+                        LinearProgressIndicator(progress = { categoryProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
             } else {
                 Text(
                     text = "Use o botão Focar em uma tarefa para começar a registrar tempo.",
