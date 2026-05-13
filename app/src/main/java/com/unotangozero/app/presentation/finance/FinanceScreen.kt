@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.unotangozero.app.domain.models.FinancialMovement
+import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.PlannedBill
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
@@ -82,13 +84,14 @@ fun FinanceScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Resumo do seu dinheiro, parcelas, orçamento e projeções.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Resumo do seu dinheiro, orçamento, lançamentos e projeções.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { BalanceHeroCard(uiState, onOpenAccounts) }
             item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
+            item { RecentMovementsCard(uiState, onOpenMovements) }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
             item { ProjectionPreviewCard(uiState, onOpenProjection) }
 
@@ -143,7 +146,7 @@ private fun BalanceHeroCard(uiState: FinanceDashboardUiState, onOpenAccounts: ()
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Saldo total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(money(uiState.totalBalanceInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-            Text("Toque para ver suas contas", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${uiState.accountCount} conta(s) cadastrada(s) • toque para gerenciar", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -158,6 +161,7 @@ private fun MonthSummaryCard(uiState: FinanceDashboardUiState) {
                 MiniMoneyCard(modifier = Modifier.weight(1f), title = "Despesas", value = uiState.monthlyExpenseInCents)
             }
             SummaryLine("Resultado", uiState.monthlyBalanceInCents)
+            SummaryLine("Lançamentos", uiState.monthlyMovementCount.toLong(), isMoney = false)
             if (uiState.monthlyAdjustmentInCents != 0L) SummaryLine("Ajustes", uiState.monthlyAdjustmentInCents)
         }
     }
@@ -170,6 +174,36 @@ private fun MiniMoneyCard(modifier: Modifier = Modifier, title: String, value: L
             Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(money(value), fontWeight = FontWeight.ExtraBold)
         }
+    }
+}
+
+@Composable
+private fun RecentMovementsCard(uiState: FinanceDashboardUiState, onOpenMovements: () -> Unit) {
+    Card(onClick = onOpenMovements, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Últimos lançamentos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            if (uiState.recentMovements.isEmpty()) {
+                Text("Nenhum lançamento ainda. Toque para cadastrar receita, despesa, transferência ou ajuste.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                uiState.recentMovements.forEach { movement -> MovementPreviewRow(movement) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovementPreviewRow(movement: FinancialMovement) {
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM") }
+    val signedAmount = when (movement.type) {
+        FinancialMovementType.EXPENSE -> -movement.amountInCents
+        else -> movement.amountInCents
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(movement.description, fontWeight = FontWeight.Bold)
+            Text("${movement.type.displayName} • ${movement.date.format(formatter)}${movement.category?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+        Text(money(signedAmount), fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -188,6 +222,7 @@ private fun BudgetPreviewCard(uiState: FinanceDashboardUiState, onOpenBudget: ()
                 val progress = if (budget.totalAvailableInCents > 0L) {
                     (budget.totalSpentInCents.toDouble() / budget.totalAvailableInCents.toDouble()).toFloat().coerceIn(0f, 1f)
                 } else 0f
+                Text("${(progress * 100).toInt()}% usado", fontWeight = FontWeight.Bold)
                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             }
         }
@@ -230,10 +265,10 @@ private fun EmptyCard(text: String) {
 }
 
 @Composable
-private fun SummaryLine(label: String, value: Long) {
+private fun SummaryLine(label: String, value: Long, isMoney: Boolean = true) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(money(value), fontWeight = FontWeight.Bold)
+        Text(if (isMoney) money(value) else value.toString(), fontWeight = FontWeight.Bold)
     }
 }
 
