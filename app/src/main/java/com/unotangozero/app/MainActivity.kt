@@ -231,7 +231,12 @@ private fun FinanceContent(
         )
         FinanceDestination.ACCOUNTS -> AccountsRoute()
         FinanceDestination.CATEGORIES -> FinancialCategoriesRoute()
-        FinanceDestination.MOVEMENTS -> MovementsRoute(openFormInitially = openMovementFormNext)
+        FinanceDestination.MOVEMENTS -> {
+            LaunchedEffect(openMovementFormNext) {
+                if (openMovementFormNext) onOpenMovementFormNextChange(false)
+            }
+            MovementsRoute(openFormInitially = openMovementFormNext)
+        }
         FinanceDestination.RECONCILIATION -> ReconciliationRoute()
         FinanceDestination.BUDGET -> EnvelopeBudgetRoute()
         FinanceDestination.REPORTS -> FinancialReportsRoute()
