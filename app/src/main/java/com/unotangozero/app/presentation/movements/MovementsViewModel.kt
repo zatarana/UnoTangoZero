@@ -179,7 +179,7 @@ class MovementsViewModel @Inject constructor(
 
             if (failureMessage == null) {
                 _form.value = MovementFormState(type = state.type)
-                _message.value = if (installmentCount > 1) "$installmentCount parcelas salvas." else "Movimentação salva."
+                _message.value = if (installmentCount > 1) "$installmentCount parcelas salvas a partir do valor total." else "Movimentação salva."
             } else {
                 _message.value = failureMessage
             }
@@ -203,9 +203,13 @@ class MovementsViewModel @Inject constructor(
     }
 
     private fun buildInstallments(baseMovement: FinancialMovement, installmentCount: Int): List<FinancialMovement> {
+        val baseInstallmentAmount = baseMovement.amountInCents / installmentCount
+        val remainder = baseMovement.amountInCents % installmentCount
         return (1..installmentCount).map { installmentNumber ->
+            val installmentAmount = baseInstallmentAmount + if (installmentNumber == 1) remainder else 0L
             baseMovement.copy(
                 id = java.util.UUID.randomUUID().toString(),
+                amountInCents = installmentAmount,
                 date = baseMovement.date.plusMonths((installmentNumber - 1).toLong()),
                 description = "${baseMovement.description} ($installmentNumber/$installmentCount)"
             )
