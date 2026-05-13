@@ -21,7 +21,9 @@ class BootCompletedReceiver : BroadcastReceiver() {
     @Inject lateinit var reminderScheduler: TaskReminderScheduler
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val shouldReschedule = intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        if (!shouldReschedule) return
 
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
