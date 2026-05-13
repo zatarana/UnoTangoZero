@@ -127,12 +127,13 @@ fun SavingsGoalsScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Metas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Acompanhe seu progresso e crie novas metas pelo botão +.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Metas financeiras", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+                    Text("Acompanhe valores guardados, prazos e porcentagem de conclusão.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { GoalsSummaryCard(savedTotal = savedTotal, targetTotal = targetTotal, activeCount = activeGoals.size) }
+            item { GoalsGuidanceCard() }
 
             if (activeGoals.isEmpty() && completedGoals.isEmpty()) {
                 item { EmptyGoalsCard() }
@@ -204,12 +205,24 @@ fun SavingsGoalsScreen(
 @Composable
 private fun GoalsSummaryCard(savedTotal: Long, targetTotal: Long, activeCount: Int) {
     val progress = if (targetTotal > 0L) (savedTotal.toDouble() / targetTotal.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
+    val progressPercent = (progress * 100).toInt()
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Resumo das metas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(money(savedTotal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-            Text("guardados de ${money(targetTotal)} • $activeCount ativa(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Progresso geral das metas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("$progressPercent%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            Text("${money(savedTotal)} guardados de ${money(targetTotal)} • $activeCount ativa(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun GoalsGuidanceCard() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Sobre esta aba", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("Use aqui para metas com valor: reserva de emergência, viagem, compra planejada ou quitação.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Metas baseadas em tarefas ainda devem ser organizadas em Projetos/Tarefas até virarem um módulo próprio.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -223,8 +236,8 @@ private fun SectionTitle(title: String) {
 private fun EmptyGoalsCard() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Nenhuma meta ainda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Toque no + para criar uma meta de economia.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Nenhuma meta financeira ainda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Toque no + para criar uma meta com valor, prazo e progresso em porcentagem.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -248,7 +261,7 @@ private fun GoalFormSheet(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = form.targetDate.toEpochMillis())
 
     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Nova meta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text("Nova meta financeira", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.name, onValueChange = onNameChange, label = { Text("Nome da meta") }, singleLine = true)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.targetAmountText, onValueChange = onTargetAmountChange, label = { Text("Valor alvo") }, prefix = { Text("R$ ") }, singleLine = true)
         OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = form.category, onValueChange = onCategoryChange, label = { Text("Categoria opcional") }, singleLine = true)
@@ -302,6 +315,8 @@ private fun GoalCard(
 ) {
     var isDepositOpen by remember { mutableStateOf(false) }
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val progress = (goal.progressPercentage / 100.0).toFloat().coerceIn(0f, 1f)
+    val progressPercent = goal.progressPercentage.toInt().coerceIn(0, 100)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -311,7 +326,8 @@ private fun GoalCard(
                 }
                 IconButton(onClick = { onDeleteGoal(goal) }) { Icon(Icons.Default.Delete, contentDescription = "Excluir") }
             }
-            LinearProgressIndicator(progress = { (goal.progressPercentage / 100.0).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            Text("$progressPercent% concluída", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
             Text("${money(goal.currentAmountInCents)} de ${money(goal.targetAmountInCents)}", fontWeight = FontWeight.Bold)
             Text("Faltam ${money(goal.remainingAmountInCents)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             goal.targetDate?.let { Text("${it.format(formatter)} • ${monthlyNeeded(goal)} por mês", color = MaterialTheme.colorScheme.onSurfaceVariant) }
