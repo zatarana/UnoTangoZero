@@ -103,6 +103,9 @@ fun HabitsScreen(
 ) {
     var isFormOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val dailyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.DAILY } }
+    val weeklyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.WEEKLY } }
+    val monthlyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.MONTHLY } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -121,19 +124,26 @@ fun HabitsScreen(
             item { TodayHabitCard(habits = habits) }
             item { HabitGuidanceCard() }
 
-            item {
-                Text("Hábitos ativos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            }
-
             if (habits.isEmpty()) {
                 item { EmptyHabitsCard() }
             } else {
-                items(items = habits, key = { it.id }) { habit ->
-                    HabitCard(
-                        habit = habit,
-                        onCompleteToday = onCompleteToday,
-                        onDeleteHabit = onDeleteHabit
-                    )
+                if (dailyHabits.isNotEmpty()) {
+                    item { HabitSectionTitle("Diários", dailyHabits.size) }
+                    items(items = dailyHabits, key = { it.id }) { habit ->
+                        HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
+                    }
+                }
+                if (weeklyHabits.isNotEmpty()) {
+                    item { HabitSectionTitle("Semanais", weeklyHabits.size) }
+                    items(items = weeklyHabits, key = { it.id }) { habit ->
+                        HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
+                    }
+                }
+                if (monthlyHabits.isNotEmpty()) {
+                    item { HabitSectionTitle("Mensais", monthlyHabits.size) }
+                    items(items = monthlyHabits, key = { it.id }) { habit ->
+                        HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
+                    }
                 }
             }
         }
@@ -168,6 +178,14 @@ fun HabitsScreen(
                 onClose = { isFormOpen = false }
             )
         }
+    }
+}
+
+@Composable
+private fun HabitSectionTitle(title: String, count: Int) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        AssistChip(onClick = {}, label = { Text(count.toString()) })
     }
 }
 
