@@ -40,7 +40,6 @@ fun FinanceRoute(
     onOpenAccounts: () -> Unit,
     onOpenMovements: () -> Unit,
     onOpenBudget: () -> Unit,
-    onOpenBills: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
@@ -54,7 +53,6 @@ fun FinanceRoute(
         onOpenAccounts = onOpenAccounts,
         onOpenMovements = onOpenMovements,
         onOpenBudget = onOpenBudget,
-        onOpenBills = onOpenBills,
         onOpenGoals = onOpenGoals,
         onOpenReports = onOpenReports,
         onOpenProjection = onOpenProjection,
@@ -69,7 +67,6 @@ fun FinanceScreen(
     onOpenAccounts: () -> Unit,
     onOpenMovements: () -> Unit,
     onOpenBudget: () -> Unit,
-    onOpenBills: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
@@ -85,26 +82,26 @@ fun FinanceScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Finanças", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Resumo do seu dinheiro, contas e orçamento.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Resumo do seu dinheiro, parcelas, orçamento e projeções.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { BalanceHeroCard(uiState, onOpenAccounts) }
-            item { FinanceQuickAccessRow(onOpenAccounts, onOpenBills, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenReconciliation, onOpenCategories) }
+            item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
             item { ProjectionPreviewCard(uiState, onOpenProjection) }
 
             if (uiState.overdueBills.isNotEmpty()) {
                 item { SectionTitle("Vencidas") }
-                items(uiState.overdueBills, key = { it.id }) { bill -> BillPreviewCard(bill, onOpenBills) }
+                items(uiState.overdueBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
             }
 
             item { SectionTitle("Próximos 30 dias") }
             if (uiState.upcomingBills.isEmpty()) {
-                item { EmptyCard("Nenhuma conta planejada para os próximos 30 dias.") }
+                item { EmptyCard("Nenhum vencimento previsto para os próximos 30 dias.") }
             } else {
-                items(uiState.upcomingBills, key = { it.id }) { bill -> BillPreviewCard(bill, onOpenBills) }
+                items(uiState.upcomingBills, key = { it.id }) { bill -> BillPreviewCard(bill) }
             }
         }
 
@@ -122,7 +119,6 @@ fun FinanceScreen(
 @Composable
 private fun FinanceQuickAccessRow(
     onOpenAccounts: () -> Unit,
-    onOpenBills: () -> Unit,
     onOpenBudget: () -> Unit,
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
@@ -132,7 +128,6 @@ private fun FinanceQuickAccessRow(
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         item { FilterChip(selected = false, onClick = onOpenAccounts, label = { Text("Contas") }) }
-        item { FilterChip(selected = false, onClick = onOpenBills, label = { Text("Vencimentos") }) }
         item { FilterChip(selected = false, onClick = onOpenBudget, label = { Text("Orçamento") }) }
         item { FilterChip(selected = false, onClick = onOpenReports, label = { Text("Relatórios") }) }
         item { FilterChip(selected = false, onClick = onOpenProjection, label = { Text("Projeção") }) }
@@ -211,9 +206,9 @@ private fun ProjectionPreviewCard(uiState: FinanceDashboardUiState, onOpenProjec
 }
 
 @Composable
-private fun BillPreviewCard(bill: PlannedBill, onOpenBills: () -> Unit) {
+private fun BillPreviewCard(bill: PlannedBill) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-    Card(onClick = onOpenBills, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(bill.description, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             Text("${bill.type.displayName} • ${bill.dueDate.format(formatter)}${bill.category?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
