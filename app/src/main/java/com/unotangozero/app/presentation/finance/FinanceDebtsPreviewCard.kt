@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.unotangozero.app.domain.enums.DebtStatus
+import com.unotangozero.app.domain.models.Debt
 import com.unotangozero.app.domain.models.DebtSummary
 import com.unotangozero.app.domain.repositories.DebtRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +35,9 @@ import javax.inject.Inject
 class FinanceDebtsPreviewViewModel @Inject constructor(
     debtRepository: DebtRepository
 ) : ViewModel() {
+    val debts: StateFlow<List<Debt>> = debtRepository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val summary: StateFlow<DebtSummary> = debtRepository.observeSummary()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DebtSummary())
 }
@@ -42,8 +47,13 @@ fun FinanceDebtsPreviewCard(
     onOpenDebts: () -> Unit,
     viewModel: FinanceDebtsPreviewViewModel = hiltViewModel()
 ) {
+    val debts by viewModel.debts.collectAsState()
     val summary by viewModel.summary.collectAsState()
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val totalRemainingInCents = debts
+        .filter { it.status != DebtStatus.PAID }
+        .sumOf { it.remainingAmountInCents }
+        .coerceAtLeast(0L)
 
     Card(
         onClick = onOpenDebts,
@@ -54,6 +64,8 @@ fun FinanceDebtsPreviewCard(
             if (summary.activeDebts == 0) {
                 Text("Nenhuma dívida em aberto. Toque para cadastrar ou revisar histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
+                Text(money(totalRemainingInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                Text("em aberto", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Ativas", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(summary.activeDebts.toString(), fontWeight = FontWeight.Bold)
