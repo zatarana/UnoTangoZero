@@ -15,18 +15,41 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.unotangozero.app.data.tasks.FocusSessionRepository
 import com.unotangozero.app.domain.models.Task
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
+import javax.inject.Inject
+
+@HiltViewModel
+class FocusTaskViewModel @Inject constructor(
+    private val focusSessionRepository: FocusSessionRepository
+) : ViewModel() {
+    fun saveFocusSession(taskId: String, seconds: Int) {
+        viewModelScope.launch {
+            focusSessionRepository.addFocusedSeconds(taskId, seconds)
+        }
+    }
+}
 
 @Composable
-fun FocusTaskButton(task: Task, modifier: Modifier = Modifier) {
+fun FocusTaskButton(
+    task: Task,
+    modifier: Modifier = Modifier,
+    viewModel: FocusTaskViewModel = hiltViewModel()
+) {
     var isOpen by remember { mutableStateOf(false) }
 
     OutlinedButton(
@@ -39,15 +62,31 @@ fun FocusTaskButton(task: Task, modifier: Modifier = Modifier) {
     if (isOpen) {
         FocusTaskDialog(
             task = task,
+            onSave = { seconds -> viewModel.saveFocusSession(task.id, seconds) },
             onDismiss = { isOpen = false }
         )
     }
 }
 
 @Composable
-private fun FocusTaskDialog(task: Task, onDismiss: () -> Unit) {
+private fun FocusTaskDialog(
+    task: Task,
+    onSave: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
     var elapsedSeconds by remember(task.id) { mutableIntStateOf(0) }
     var isRunning by remember(task.id) { mutableStateOf(false) }
+    var wasSaved by remember(task.id) { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    fun finishSession() {
+        if (!wasSaved && elapsedSeconds > 0) {
+            onSave(elapsedSeconds)
+            wasSaved = true
+        }
+        isRunning = false
+        onDismiss()
+    }
 
     LaunchedEffect(task.id, isRunning) {
         while (isRunning) {
@@ -57,7 +96,7 @@ private fun FocusTaskDialog(task: Task, onDismiss: () -> Unit) {
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { finishSession() },
         title = { Text("Foco em ${task.title}") },
         text = {
             Column(
@@ -85,7 +124,7 @@ private fun FocusTaskDialog(task: Task, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Encerrar") }
+            TextButton(onClick = { finishSession() }) { Text("Encerrar e salvar") }
         },
         dismissButton = {
             TextButton(onClick = { isRunning = false }) { Text("Pausar") }
