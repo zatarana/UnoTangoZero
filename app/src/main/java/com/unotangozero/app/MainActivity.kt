@@ -73,7 +73,7 @@ private enum class FinanceDestination { DASHBOARD, ACCOUNTS, CATEGORIES, MOVEMEN
 private val destinations = listOf(
     TangoDestination("Metas", Icons.Default.CheckCircle),
     TangoDestination("Tarefas", Icons.Default.Event),
-    TangoDestination("Rastreador", Icons.Default.MoreHoriz),
+    TangoDestination("Hábitos", Icons.Default.MoreHoriz),
     TangoDestination("Finanças", Icons.Default.AccountBalanceWallet)
 )
 
