@@ -8,6 +8,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,11 +48,8 @@ class FocusSessionRepository @Inject constructor(
     }
 
     private suspend fun currentSeconds(taskId: String): Int {
-        var value = 0
-        context.focusSessionDataStore.edit { preferences ->
-            value = parse(preferences[totalsKey])[taskId] ?: 0
-        }
-        return value
+        val preferences = context.focusSessionDataStore.data.first()
+        return parse(preferences[totalsKey])[taskId] ?: 0
     }
 
     private fun parse(json: String?): Map<String, Int> {
