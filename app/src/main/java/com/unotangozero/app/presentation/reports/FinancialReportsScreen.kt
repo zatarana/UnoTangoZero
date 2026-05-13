@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.FinancialMovement
+import com.unotangozero.app.domain.models.FinancialMovementType
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -77,7 +78,7 @@ fun FinancialReportsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Relatórios", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Resumo do mês, categorias e histórico em uma visão limpa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Resumo do mês, percentuais, categorias e histórico em uma visão limpa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -150,6 +151,16 @@ private fun MonthSelector(
 
 @Composable
 private fun SummaryHeroCard(report: MonthlyFinancialReport) {
+    val incomeCount = report.movements.count { it.type == FinancialMovementType.INCOME }
+    val expenseCount = report.movements.count { it.type == FinancialMovementType.EXPENSE }
+    val savingsRate = if (report.incomeInCents > 0L) {
+        (report.balanceInCents.toDouble() / report.incomeInCents.toDouble() * 100.0).coerceIn(-999.0, 999.0)
+    } else 0.0
+    val expenseRate = if (report.incomeInCents > 0L) {
+        (report.expenseInCents.toDouble() / report.incomeInCents.toDouble() * 100.0).coerceIn(0.0, 999.0)
+    } else 0.0
+    val expenseProgress = (expenseRate / 100.0).toFloat().coerceIn(0f, 1f)
+
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Saldo do mês", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
@@ -160,6 +171,11 @@ private fun SummaryHeroCard(report: MonthlyFinancialReport) {
             }
             SummaryLine("Transferências", report.transferInCents)
             SummaryLine("Ajustes", report.adjustmentInCents)
+            SummaryTextLine("Lançamentos", "${report.movements.size} no mês")
+            SummaryTextLine("Receitas x despesas", "$incomeCount receita(s) • $expenseCount despesa(s)")
+            SummaryTextLine("Taxa de economia", "${savingsRate.toInt()}%")
+            SummaryTextLine("Despesas sobre receitas", "${expenseRate.toInt()}%")
+            LinearProgressIndicator(progress = { expenseProgress }, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -197,6 +213,14 @@ private fun SummaryLine(label: String, value: Long) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(money(value), fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SummaryTextLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontWeight = FontWeight.Bold)
     }
 }
 
