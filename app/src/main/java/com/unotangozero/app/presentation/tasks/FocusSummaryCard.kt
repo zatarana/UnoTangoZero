@@ -63,18 +63,20 @@ fun FocusSummaryCard(
                 text = "$activeTasksWithFocus tarefa(s) com tempo registrado",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            topTask?.let { task ->
+            if (topEntry != null && topTask != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Mais focada", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(task.title, fontWeight = FontWeight.Bold)
+                    Text(topTask.title, fontWeight = FontWeight.Bold)
                 }
                 Text("Tempo nela: ${formatFocusCompact(topEntry.value)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val progress = if (totalSeconds > 0) topEntry.value.toFloat() / totalSeconds.toFloat() else 0f
                 LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-            } ?: Text(
-                text = "Use o botão Focar em uma tarefa para começar a registrar tempo.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            } else {
+                Text(
+                    text = "Use o botão Focar em uma tarefa para começar a registrar tempo.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
