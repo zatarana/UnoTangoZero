@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,14 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,157 +20,160 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.unotangozero.app.domain.models.DashboardSummary
+import com.unotangozero.app.presentation.common.UiState
 import java.text.NumberFormat
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun DashboardRoute(
-    viewModel: DashboardViewModel = hiltViewModel()
-) {
-    val summary by viewModel.summary.collectAsState()
-    DashboardScreen(summary = summary)
+fun DashboardRoute(viewModel: DashboardViewModel = hiltViewModel()) {
+    val state by viewModel.uiState.collectAsState()
+
+    when (val currentState = state) {
+        UiState.Loading -> DashboardLoadingState()
+        is UiState.Error -> DashboardErrorState(currentState.message)
+        is UiState.Success -> DashboardScreen(currentState.data)
+    }
 }
 
 @Composable
-fun DashboardScreen(summary: DashboardSummary) {
+fun DashboardScreen(state: DashboardUiState) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Dashboard", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
                 Text(
-                    text = "Uno Tango Zero",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Seu painel local de tarefas, finanças, hábitos, listas e notas.",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "Visão geral de finanças, tarefas, hábitos e metas.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
         item {
-            SummaryGrid(summary = summary)
+            DashboardMetricCard(
+                title = "Saldo atual",
+                value = formatMoney(state.currentBalanceInCents),
+                description = "Soma do saldo atual das contas cadastradas."
+            )
         }
+
+        item { UpcomingBillsCard(bills = state.upcomingBills) }
 
         item {
-            InfoCard(
-                icon = Icons.Default.CheckCircle,
-                title = "Tarefas de hoje",
-                value = "${summary.todayTasksPending} pendentes / ${summary.todayTasksCompleted} concluídas",
-                description = if (summary.todayTasks.isEmpty()) {
-                    "Nenhuma tarefa cadastrada para hoje."
-                } else {
-                    "Você tem ${summary.todayTasks.size} tarefa(s) no planejamento de hoje."
-                }
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DashboardMetricCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Tarefas do dia",
+                    value = state.todayTasksCount.toString(),
+                    description = "pendente(s) hoje"
+                )
+                DashboardMetricCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Streak de hábitos",
+                    value = state.maxHabitStreak.toString(),
+                    description = "maior sequência ativa"
+                )
+            }
         }
 
-        item {
-            InfoCard(
-                icon = Icons.Default.AccountBalanceWallet,
-                title = "Dívidas ativas",
-                value = summary.debtSummary.activeDebts.toString(),
-                description = "Total em aberto: ${formatMoney(summary.debtSummary.totalDebtWithInterestInCents)}"
-            )
+        item { GoalsProgressCard(progressPercent = state.averageGoalsProgressPercent) }
+    }
+}
+
+@Composable
+private fun DashboardLoadingState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator()
+            Text("Carregando Dashboard...", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun SummaryGrid(summary: DashboardSummary) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.CheckCircle,
-                title = "Hoje",
-                value = summary.todayTasks.size.toString()
-            )
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.AccountBalanceWallet,
-                title = "Gasto hoje",
-                value = formatMoney(summary.totalTodaySpentInCents)
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Repeat,
-                title = "Hábitos",
-                value = summary.activeHabits.size.toString()
-            )
-            MetricCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.ListAlt,
-                title = "Listas",
-                value = summary.activeShoppingLists.size.toString()
-            )
-        }
-    }
-}
-
-@Composable
-private fun MetricCard(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    title: String,
-    value: String
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(icon, contentDescription = null)
-            Text(title, style = MaterialTheme.typography.labelLarge)
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun InfoCard(
-    icon: ImageVector,
-    title: String,
-    value: String,
-    description: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                Text(description, style = MaterialTheme.typography.bodyMedium)
+private fun DashboardErrorState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Não foi possível carregar o Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(message)
             }
         }
     }
 }
 
+@Composable
+private fun DashboardMetricCard(
+    title: String,
+    value: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun UpcomingBillsCard(bills: List<UpcomingBillUi>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Próximas contas a pagar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (bills.isEmpty()) {
+                Text("Nenhuma conta futura encontrada.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                bills.forEach { bill -> UpcomingBillRow(bill) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpcomingBillRow(bill: UpcomingBillUi) {
+    val formatter = DateTimeFormatter.ofPattern("dd/MM")
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(bill.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            Text("Vence em ${bill.dueDate.format(formatter)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(formatMoney(bill.amountInCents), fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun GoalsProgressCard(progressPercent: Int) {
+    val progress = (progressPercent / 100f).coerceIn(0f, 1f)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Progresso das metas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("$progressPercent%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            Text("Porcentagem média das metas cadastradas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 private fun formatMoney(amountInCents: Long): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale("pt", "BR"))
-    return formatter.format(amountInCents / 100.0)
+    return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(amountInCents / 100.0)
 }
