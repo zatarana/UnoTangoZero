@@ -95,6 +95,7 @@ fun TasksRoute(onOpenProjects: () -> Unit, viewModel: TasksViewModel = hiltViewM
             selectedTag = selectedTag,
             editorState = editorState,
             onOpenProjects = onOpenProjects,
+            onSmartTaskAdd = viewModel::addSmartTask,
             onTitleChange = viewModel::onTitleChange,
             onDueDatePreviousDay = viewModel::onDueDatePreviousDay,
             onDueDateNextDay = viewModel::onDueDateNextDay,
@@ -131,6 +132,7 @@ fun TasksScreen(
     selectedTag: String?,
     editorState: TaskEditorUiState,
     onOpenProjects: () -> Unit,
+    onSmartTaskAdd: (String) -> Unit,
     onTitleChange: (String) -> Unit,
     onDueDatePreviousDay: () -> Unit,
     onDueDateNextDay: () -> Unit,
@@ -173,9 +175,10 @@ fun TasksScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Tarefas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Visualize suas tarefas em colunas por categoria.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Digite naturalmente: pagar boleto amanhã às 14h p1.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            item { SmartTaskInputCard(onSmartTaskAdd = onSmartTaskAdd) }
             item { TaskQuickActionsCard(onOpenProjects) }
             item { FocusSummaryCard(tasks = tasks) }
             if (allTags.isNotEmpty()) item { TagFilterRow(tags = allTags, selectedTag = selectedTag, onTagFilterChange = onTagFilterChange) }
@@ -218,6 +221,38 @@ fun TasksScreen(
                 onSubtasksChange = onSubtasksChange,
                 onSaveClick = { onSaveClick(); isEditorOpen = false },
                 onCancelEdit = { onCancelEdit(); isEditorOpen = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SmartTaskInputCard(onSmartTaskAdd: (String) -> Unit) {
+    var smartText by remember { mutableStateOf("") }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = smartText,
+                    onValueChange = { smartText = it },
+                    label = { Text("Adicionar tarefa...") },
+                    placeholder = { Text("Ex: estudar amanhã às 14h p1") },
+                    singleLine = true
+                )
+                Button(
+                    onClick = {
+                        onSmartTaskAdd(smartText)
+                        smartText = ""
+                    }
+                ) {
+                    Text("Add")
+                }
+            }
+            Text(
+                "Reconhece hoje, amanhã, segunda, terça... horários como 14h/14:30 e prioridade p1, p2 ou p3.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
