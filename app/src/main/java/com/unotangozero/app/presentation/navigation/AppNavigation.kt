@@ -37,6 +37,8 @@ import com.unotangozero.app.presentation.budget.BudgetRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 import com.unotangozero.app.presentation.goals.GoalsRoute
+import com.unotangozero.app.presentation.habits.HabitsRoute
+import com.unotangozero.app.presentation.tasks.TasksRoute
 
 @Composable
 fun AppNavigation() {
@@ -86,8 +88,8 @@ fun AppNavigation() {
                     onOpenCategories = {}
                 )
             }
-            composable(AppRoute.Tasks.route) { PlaceholderScreen("Tarefas", AppRoute.Tasks.route, navController) }
-            composable(AppRoute.Habits.route) { PlaceholderScreen("Hábitos", AppRoute.Habits.route, navController) }
+            composable(AppRoute.Tasks.route) { TasksRoute(onOpenProjects = {}) }
+            composable(AppRoute.Habits.route) { HabitsRoute() }
             composable(AppRoute.Budget.route) { BudgetRoute() }
             composable(AppRoute.Goals.route) { GoalsRoute() }
 
