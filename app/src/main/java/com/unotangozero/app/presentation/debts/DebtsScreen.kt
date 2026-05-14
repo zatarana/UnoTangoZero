@@ -228,6 +228,11 @@ private fun DebtEditorCard(
             Text(if (state.isEditing) "Editar dívida" else "Nova dívida", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.creditor, onValueChange = onCreditorChange, label = { Text("Credor") }, singleLine = true)
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.amountText, onValueChange = onAmountChange, label = { Text("Valor em aberto") }, singleLine = true, prefix = { Text("R$ ") })
+            Text(
+                text = if (state.isEditing) "Ao editar, este campo representa o saldo em aberto. Valores já pagos são preservados." else "Informe o valor total inicial da dívida.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = state.description, onValueChange = onDescriptionChange, label = { Text("Descrição opcional") }, minLines = 2)
             DueDateSelector(dueDate = state.dueDate, onPreviousDueDay = onPreviousDueDay, onNextDueDay = onNextDueDay, onDueDateSelected = onDueDateSelected)
             Button(modifier = Modifier.fillMaxWidth(), onClick = onSaveDebt) { Text(if (state.isEditing) "Salvar alterações" else "Cadastrar dívida") }
