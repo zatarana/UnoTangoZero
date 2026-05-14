@@ -95,6 +95,7 @@ fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
             onCancelEdit = viewModel::cancelEditing,
             onStartEdit = viewModel::startEditing,
             onMarkAsPaid = viewModel::markAsPaid,
+            onRegisterPartialPayment = viewModel::registerPartialPayment,
             onDeleteDebt = viewModel::deleteDebt
         )
     }
@@ -116,6 +117,7 @@ fun DebtsScreen(
     onCancelEdit: () -> Unit,
     onStartEdit: (Debt) -> Unit,
     onMarkAsPaid: (Debt, String, String?) -> Unit,
+    onRegisterPartialPayment: (Debt, String, String?) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
     val openDebts = remember(debts) { debts.filter { it.status != DebtStatus.PAID }.sortedBy { it.dueDate } }
@@ -166,6 +168,7 @@ fun DebtsScreen(
                         accounts = accounts,
                         onStartEdit = onStartEdit,
                         onMarkAsPaid = onMarkAsPaid,
+                        onRegisterPartialPayment = onRegisterPartialPayment,
                         onDeleteDebt = onDeleteDebt
                     )
                 }
@@ -181,6 +184,7 @@ fun DebtsScreen(
                         accounts = accounts,
                         onStartEdit = onStartEdit,
                         onMarkAsPaid = onMarkAsPaid,
+                        onRegisterPartialPayment = onRegisterPartialPayment,
                         onDeleteDebt = onDeleteDebt
                     )
                 }
@@ -316,6 +320,7 @@ private fun DebtCard(
     accounts: List<FinancialAccount>,
     onStartEdit: (Debt) -> Unit,
     onMarkAsPaid: (Debt, String, String?) -> Unit,
+    onRegisterPartialPayment: (Debt, String, String?) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -324,7 +329,9 @@ private fun DebtCard(
     } else 0f
     val paidPercent = (paidProgress * 100).toInt()
     var isPayoffDialogOpen by remember { mutableStateOf(false) }
+    var isPartialDialogOpen by remember { mutableStateOf(false) }
     var finalPaidAmountText by remember(debt.id, debt.remainingAmountInCents) { mutableStateOf(centsToMoneyText(debt.remainingAmountInCents)) }
+    var partialPaidAmountText by remember(debt.id, debt.remainingAmountInCents) { mutableStateOf("") }
     var selectedAccountId by remember(accounts, debt.id) { mutableStateOf(accounts.firstOrNull()?.id) }
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -348,58 +355,105 @@ private fun DebtCard(
             }
 
             if (debt.status != DebtStatus.PAID) {
-                Button(modifier = Modifier.fillMaxWidth(), onClick = { isPayoffDialogOpen = true }) {
-                    Text("Quitar integralmente")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = { isPartialDialogOpen = true }) {
+                        Text("Pagar parte")
+                    }
+                    Button(modifier = Modifier.weight(1f), onClick = { isPayoffDialogOpen = true }) {
+                        Text("Quitar")
+                    }
                 }
             }
         }
     }
 
+    if (isPartialDialogOpen) {
+        DebtPaymentDialog(
+            title = "Pagar parte da dívida",
+            description = "Informe o valor pago parcialmente para ${debt.creditor}.",
+            remainingAmountInCents = debt.remainingAmountInCents,
+            amountText = partialPaidAmountText,
+            onAmountTextChange = { partialPaidAmountText = it.filterMoneyChars() },
+            accounts = accounts,
+            selectedAccountId = selectedAccountId,
+            onAccountSelected = { selectedAccountId = it },
+            confirmText = "Registrar",
+            onConfirm = {
+                onRegisterPartialPayment(debt, partialPaidAmountText, selectedAccountId)
+                if (selectedAccountId != null) isPartialDialogOpen = false
+            },
+            onDismiss = { isPartialDialogOpen = false }
+        )
+    }
+
     if (isPayoffDialogOpen) {
-        AlertDialog(
-            onDismissRequest = { isPayoffDialogOpen = false },
-            title = { Text("Quitar dívida") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Informe o valor final pago para ${debt.creditor}.")
-                    Text("Valor em aberto: ${formatMoney(debt.remainingAmountInCents)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = finalPaidAmountText,
-                        onValueChange = { finalPaidAmountText = it.filterMoneyChars() },
-                        label = { Text("Valor final pago") },
-                        prefix = { Text("R$ ") },
-                        singleLine = true
-                    )
-                    Text("Conta usada para pagar", style = MaterialTheme.typography.labelLarge)
-                    if (accounts.isEmpty()) {
-                        Text("Cadastre uma conta em Finanças > Contas antes de registrar a despesa automaticamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(accounts, key = { it.id }) { account ->
-                                FilterChip(
-                                    selected = selectedAccountId == account.id,
-                                    onClick = { selectedAccountId = account.id },
-                                    label = { Text(account.name) }
-                                )
-                            }
+        DebtPaymentDialog(
+            title = "Quitar dívida",
+            description = "Informe o valor final pago para ${debt.creditor}.",
+            remainingAmountInCents = debt.remainingAmountInCents,
+            amountText = finalPaidAmountText,
+            onAmountTextChange = { finalPaidAmountText = it.filterMoneyChars() },
+            accounts = accounts,
+            selectedAccountId = selectedAccountId,
+            onAccountSelected = { selectedAccountId = it },
+            confirmText = "Quitar",
+            onConfirm = {
+                onMarkAsPaid(debt, finalPaidAmountText, selectedAccountId)
+                if (selectedAccountId != null) isPayoffDialogOpen = false
+            },
+            onDismiss = { isPayoffDialogOpen = false }
+        )
+    }
+}
+
+@Composable
+private fun DebtPaymentDialog(
+    title: String,
+    description: String,
+    remainingAmountInCents: Long,
+    amountText: String,
+    onAmountTextChange: (String) -> Unit,
+    accounts: List<FinancialAccount>,
+    selectedAccountId: String?,
+    onAccountSelected: (String) -> Unit,
+    confirmText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(description)
+                Text("Valor em aberto: ${formatMoney(remainingAmountInCents)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = amountText,
+                    onValueChange = onAmountTextChange,
+                    label = { Text("Valor pago") },
+                    prefix = { Text("R$ ") },
+                    singleLine = true
+                )
+                Text("Conta usada para pagar", style = MaterialTheme.typography.labelLarge)
+                if (accounts.isEmpty()) {
+                    Text("Cadastre uma conta em Finanças > Contas antes de registrar a despesa automaticamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(accounts, key = { it.id }) { account ->
+                            FilterChip(
+                                selected = selectedAccountId == account.id,
+                                onClick = { onAccountSelected(account.id) },
+                                label = { Text(account.name) }
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onMarkAsPaid(debt, finalPaidAmountText, selectedAccountId)
-                        if (selectedAccountId != null) isPayoffDialogOpen = false
-                    }
-                ) { Text("Quitar") }
-            },
-            dismissButton = {
-                TextButton(onClick = { isPayoffDialogOpen = false }) { Text("Cancelar") }
             }
-        )
-    }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmText) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
