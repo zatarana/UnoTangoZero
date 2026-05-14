@@ -60,6 +60,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.round
 
 @Composable
 fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
@@ -397,7 +398,8 @@ private fun DebtCard(
             confirmText = "Registrar",
             onConfirm = {
                 onRegisterPartialPayment(debt, partialPaidAmountText, selectedAccountId)
-                if (selectedAccountId != null) isPartialDialogOpen = false
+                val amount = parseMoneyToCents(partialPaidAmountText)
+                if (selectedAccountId != null && amount > 0L && amount < debt.remainingAmountInCents) isPartialDialogOpen = false
             },
             onDismiss = { isPartialDialogOpen = false }
         )
@@ -416,7 +418,7 @@ private fun DebtCard(
             confirmText = "Quitar",
             onConfirm = {
                 onMarkAsPaid(debt, finalPaidAmountText, selectedAccountId)
-                if (selectedAccountId != null) isPayoffDialogOpen = false
+                if (selectedAccountId != null && parseMoneyToCents(finalPaidAmountText) > 0L) isPayoffDialogOpen = false
             },
             onDismiss = { isPayoffDialogOpen = false }
         )
@@ -484,6 +486,12 @@ private fun formatMoney(amountInCents: Long): String {
 
 private fun centsToMoneyText(amountInCents: Long): String {
     return "%.2f".format(amountInCents / 100.0).replace('.', ',')
+}
+
+private fun parseMoneyToCents(rawValue: String): Long {
+    val normalized = rawValue.trim().replace(".", "").replace(",", ".")
+    val amount = normalized.toDoubleOrNull() ?: return 0L
+    return round(amount * 100).toLong()
 }
 
 private fun String.filterMoneyChars(): String = filter { it.isDigit() || it == ',' || it == '.' }
