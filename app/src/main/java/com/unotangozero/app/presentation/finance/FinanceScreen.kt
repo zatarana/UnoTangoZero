@@ -13,18 +13,34 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +50,9 @@ import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.PlannedBill
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -51,8 +70,20 @@ fun FinanceRoute(
     viewModel: FinanceDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val message by viewModel.message.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(message) {
+        val currentMessage = message
+        if (currentMessage != null) {
+            snackbarHostState.showSnackbar(currentMessage)
+            viewModel.clearMessage()
+        }
+    }
+
     FinanceScreen(
         uiState = uiState,
+        snackbarHostState = snackbarHostState,
         onOpenAccounts = onOpenAccounts,
         onOpenMovements = onOpenMovements,
         onOpenBudget = onOpenBudget,
@@ -61,13 +92,16 @@ fun FinanceRoute(
         onOpenReports = onOpenReports,
         onOpenProjection = onOpenProjection,
         onOpenReconciliation = onOpenReconciliation,
-        onOpenCategories = onOpenCategories
+        onOpenCategories = onOpenCategories,
+        onSaveQuickTransaction = viewModel::registerQuickTransaction
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinanceScreen(
     uiState: FinanceDashboardUiState,
+    snackbarHostState: SnackbarHostState,
     onOpenAccounts: () -> Unit,
     onOpenMovements: () -> Unit,
     onOpenBudget: () -> Unit,
@@ -76,8 +110,11 @@ fun FinanceScreen(
     onOpenReports: () -> Unit,
     onOpenProjection: () -> Unit,
     onOpenReconciliation: () -> Unit,
-    onOpenCategories: () -> Unit
+    onOpenCategories: () -> Unit,
+    onSaveQuickTransaction: (String, FinancialMovementType, String, String?, LocalDate) -> Unit
 ) {
+    var isQuickSheetOpen by remember { mutableStateOf(false) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -112,13 +149,140 @@ fun FinanceScreen(
             }
         }
 
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 88.dp))
+
         FloatingActionButton(
-            onClick = onOpenMovements,
+            onClick = { isQuickSheetOpen = true },
             modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
             Icon(Icons.Default.Add, contentDescription = "Novo lançamento")
+        }
+    }
+
+    if (isQuickSheetOpen) {
+        QuickTransactionSheet(
+            uiState = uiState,
+            onDismiss = { isQuickSheetOpen = false },
+            onSave = { amountText, type, category, accountId, date ->
+                onSaveQuickTransaction(amountText, type, category, accountId, date)
+                isQuickSheetOpen = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuickTransactionSheet(
+    uiState: FinanceDashboardUiState,
+    onDismiss: () -> Unit,
+    onSave: (String, FinancialMovementType, String, String?, LocalDate) -> Unit
+) {
+    val categories = remember { listOf("Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Salário", "Dívidas", "Outros") }
+    var amountText by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(FinancialMovementType.EXPENSE) }
+    var category by remember { mutableStateOf(categories.first()) }
+    var accountId by remember(uiState.accounts) { mutableStateOf(uiState.accounts.firstOrNull()?.id) }
+    var date by remember { mutableStateOf(LocalDate.now()) }
+    var isDatePickerOpen by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = date.toEpochMillis())
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    val selectedAccountName = uiState.accounts.firstOrNull { it.id == accountId }?.name ?: "Selecione uma conta"
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Novo lançamento rápido", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = amountText,
+                onValueChange = { amountText = it.filterMoneyChars() },
+                label = { Text("Valor") },
+                prefix = { Text("R$ ") },
+                singleLine = true
+            )
+            QuickDropdown(
+                label = "Tipo",
+                selectedText = type.displayName,
+                options = listOf(FinancialMovementType.EXPENSE.displayName, FinancialMovementType.INCOME.displayName),
+                onOptionSelected = { selected ->
+                    type = if (selected == FinancialMovementType.INCOME.displayName) FinancialMovementType.INCOME else FinancialMovementType.EXPENSE
+                }
+            )
+            QuickDropdown(
+                label = "Categoria",
+                selectedText = category,
+                options = categories,
+                onOptionSelected = { category = it }
+            )
+            QuickDropdown(
+                label = "Conta",
+                selectedText = selectedAccountName,
+                options = uiState.accounts.map { it.name },
+                onOptionSelected = { selectedName ->
+                    accountId = uiState.accounts.firstOrNull { it.name == selectedName }?.id
+                }
+            )
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { isDatePickerOpen = true }) {
+                Text("Data: ${date.format(formatter)}")
+            }
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onSave(amountText, type, category, accountId, date) }
+            ) {
+                Text("Salvar lançamento")
+            }
+        }
+    }
+
+    if (isDatePickerOpen) {
+        DatePickerDialog(
+            onDismissRequest = { isDatePickerOpen = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { date = it.toLocalDate() }
+                        isDatePickerOpen = false
+                    }
+                ) { Text("Selecionar") }
+            },
+            dismissButton = { TextButton(onClick = { isDatePickerOpen = false }) { Text("Cancelar") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun QuickDropdown(
+    label: String,
+    selectedText: String,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { expanded = true }) {
+            Text("$label: $selectedText")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (options.isEmpty()) {
+                DropdownMenuItem(text = { Text("Nenhuma opção disponível") }, onClick = { expanded = false })
+            } else {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            onOptionSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -189,7 +353,7 @@ private fun RecentMovementsCard(uiState: FinanceDashboardUiState, onOpenMovement
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Últimos lançamentos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             if (uiState.recentMovements.isEmpty()) {
-                Text("Nenhum lançamento ainda. Toque para cadastrar receita, despesa, transferência ou ajuste.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Nenhum lançamento ainda. Use o botão + para cadastrar receita ou despesa rapidamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 uiState.recentMovements.forEach { movement -> MovementPreviewRow(movement) }
             }
@@ -281,3 +445,9 @@ private fun SummaryLine(label: String, value: Long, isMoney: Boolean = true) {
 private fun money(cents: Long): String {
     return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(cents / 100.0)
 }
+
+private fun String.filterMoneyChars(): String = filter { it.isDigit() || it == ',' || it == '.' }
+
+private fun LocalDate.toEpochMillis(): Long = atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
