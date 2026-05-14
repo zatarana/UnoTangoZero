@@ -1,5 +1,6 @@
 package com.unotangozero.app.presentation.tasks
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -53,6 +55,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -245,9 +249,7 @@ private fun SmartTaskInputCard(onSmartTaskAdd: (String) -> Unit) {
                         onSmartTaskAdd(smartText)
                         smartText = ""
                     }
-                ) {
-                    Text("Add")
-                }
+                ) { Text("Add") }
             }
             Text(
                 "Reconhece hoje, amanhã, segunda, terça... horários como 14h/14:30 e prioridade p1, p2 ou p3.",
@@ -453,7 +455,10 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleTask(task) })
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PriorityBadge(task.priority)
+                    Text(task.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null)
+                }
                 val recurrenceText = task.recurrenceType?.let { " • ${it.displayName}" } ?: ""
                 val durationText = if (estimatedDurationMinutes > 0) " • ${formatDuration(estimatedDurationMinutes)}" else ""
                 Text("${task.priority.displayName} • ${task.dueDate.format(dateFormatter)}$recurrenceText$durationText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -476,8 +481,32 @@ private fun TaskCard(task: Task, estimatedDurationMinutes: Int, tags: List<Strin
     }
 }
 
+@Composable
+private fun PriorityBadge(priority: Priority) {
+    val label = when (priority) {
+        Priority.HIGH -> "P1"
+        Priority.MEDIUM -> "P2"
+        Priority.LOW -> "P3"
+    }
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(priorityColor(priority))
+            .padding(horizontal = 9.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
 private val weekDaysPtBr = listOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
 private const val SUBTASKS_MARKER = "[[SUBTAREFAS]]"
+
+private fun priorityColor(priority: Priority): Color = when (priority) {
+    Priority.HIGH -> Color(0xFFB3261E)
+    Priority.MEDIUM -> Color(0xFF8C5000)
+    Priority.LOW -> Color(0xFF386A20)
+}
 
 private fun DayOfWeek.shortPtBr(): String = when (this) {
     DayOfWeek.MONDAY -> "Seg"
