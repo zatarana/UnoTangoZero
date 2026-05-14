@@ -44,6 +44,7 @@ class FocusTaskViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     fun saveFocusSession(taskId: String, seconds: Int) {
+        if (seconds <= 0) return
         viewModelScope.launch {
             focusSessionRepository.addFocusedSeconds(taskId, seconds)
         }
@@ -64,7 +65,7 @@ fun FocusTaskButton(
         modifier = modifier,
         onClick = { isOpen = true }
     ) {
-        Text(if (savedSeconds > 0) "Focar • ${formatFocusCompact(savedSeconds)}" else "Focar")
+        Text(if (savedSeconds > 0) "Foco • ${formatFocusCompact(savedSeconds)}" else "Foco")
     }
 
     if (isOpen) {
@@ -84,11 +85,12 @@ private fun FocusTaskDialog(
     onSave: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var elapsedSeconds by remember(task.id) { mutableIntStateOf(0) }
+    var remainingSeconds by remember(task.id) { mutableIntStateOf(POMODORO_SECONDS) }
     var isRunning by remember(task.id) { mutableStateOf(false) }
     var wasSaved by remember(task.id) { mutableStateOf(false) }
 
-    fun finishSession() {
+    fun saveAndClose() {
+        val elapsedSeconds = (POMODORO_SECONDS - remainingSeconds).coerceIn(0, POMODORO_SECONDS)
         if (!wasSaved && elapsedSeconds > 0) {
             onSave(elapsedSeconds)
             wasSaved = true
@@ -97,15 +99,21 @@ private fun FocusTaskDialog(
         onDismiss()
     }
 
-    LaunchedEffect(task.id, isRunning) {
-        while (isRunning) {
+    LaunchedEffect(task.id, isRunning, remainingSeconds) {
+        while (isRunning && remainingSeconds > 0) {
             delay(1_000)
-            elapsedSeconds += 1
+            remainingSeconds -= 1
+        }
+        if (isRunning && remainingSeconds == 0 && !wasSaved) {
+            onSave(POMODORO_SECONDS)
+            wasSaved = true
+            isRunning = false
+            onDismiss()
         }
     }
 
     AlertDialog(
-        onDismissRequest = { finishSession() },
+        onDismissRequest = { saveAndClose() },
         title = { Text("Foco em ${task.title}") },
         text = {
             Column(
@@ -120,38 +128,43 @@ private fun FocusTaskDialog(
                     )
                 }
                 Text(
-                    text = formatFocusSeconds(elapsedSeconds),
+                    text = formatFocusSeconds(remainingSeconds),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = if (isRunning) "Sessão em andamento" else "Cronômetro pausado",
+                    text = when {
+                        remainingSeconds == POMODORO_SECONDS && !isRunning -> "Pomodoro de 25 minutos pronto"
+                        isRunning -> "Pomodoro em andamento"
+                        else -> "Pomodoro pausado"
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { isRunning = !isRunning }
                 ) {
-                    Text(if (isRunning) "Pausar" else "Iniciar")
+                    Text(if (isRunning) "Pausar" else "Iniciar Pomodoro")
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { finishSession() }) { Text("Encerrar e salvar") }
+            TextButton(onClick = { saveAndClose() }) { Text("Encerrar e salvar") }
         },
         dismissButton = {
-            TextButton(onClick = { isRunning = false }) { Text("Pausar") }
+            TextButton(onClick = { remainingSeconds = POMODORO_SECONDS; isRunning = false }) { Text("Reiniciar") }
         }
     )
 }
 
+private const val POMODORO_SECONDS = 25 * 60
+
 private fun formatFocusSeconds(totalSeconds: Int): String {
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
+    val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return "%02d:%02d:%02d".format(Locale("pt", "BR"), hours, minutes, seconds)
+    return "%02d:%02d".format(Locale("pt", "BR"), minutes, seconds)
 }
 
 private fun formatFocusCompact(totalSeconds: Int): String {
