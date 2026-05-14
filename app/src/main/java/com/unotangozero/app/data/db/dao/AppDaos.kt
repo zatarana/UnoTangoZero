@@ -13,6 +13,8 @@ import com.unotangozero.app.data.db.entities.ExpenseEntity
 import com.unotangozero.app.data.db.entities.HabitEntity
 import com.unotangozero.app.data.db.entities.HabitLogEntity
 import com.unotangozero.app.data.db.entities.NoteEntity
+import com.unotangozero.app.data.db.entities.GoalEntity
+import com.unotangozero.app.data.db.entities.GoalStepEntity
 import com.unotangozero.app.data.db.entities.ReminderEntity
 import com.unotangozero.app.data.db.entities.ShoppingItemEntity
 import com.unotangozero.app.data.db.entities.ShoppingListEntity
@@ -240,4 +242,28 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE title LIKE :query OR content LIKE :query ORDER BY updatedAt DESC")
     fun search(query: String): Flow<List<NoteEntity>>
+}
+
+@Dao
+interface GoalDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(goal: GoalEntity)
+
+    @Query("DELETE FROM goals WHERE id = :goalId")
+    suspend fun deleteById(goalId: String)
+
+    @Query("SELECT * FROM goals ORDER BY deadline ASC")
+    fun observeAll(): Flow<List<GoalEntity>>
+}
+
+@Dao
+interface GoalStepDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(steps: List<GoalStepEntity>)
+
+    @Query("DELETE FROM goal_steps WHERE goalId = :goalId")
+    suspend fun deleteByGoalId(goalId: String)
+
+    @Query("SELECT * FROM goal_steps")
+    fun observeAll(): Flow<List<GoalStepEntity>>
 }

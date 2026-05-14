@@ -39,4 +39,6 @@ object DatabaseModule {
     @Provides fun provideHabitDao(database: AppDatabase) = database.habitDao()
     @Provides fun provideHabitLogDao(database: AppDatabase) = database.habitLogDao()
     @Provides fun provideNoteDao(database: AppDatabase) = database.noteDao()
+    @Provides fun provideGoalDao(database: AppDatabase) = database.goalDao()
+    @Provides fun provideGoalStepDao(database: AppDatabase) = database.goalStepDao()
 }

@@ -2,6 +2,7 @@ package com.unotangozero.app.presentation.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.unotangozero.app.data.goals.GoalsRepository
 import com.unotangozero.app.domain.models.Habit
 import com.unotangozero.app.domain.models.HabitFrequency
 import com.unotangozero.app.domain.models.Priority
@@ -12,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -54,7 +56,8 @@ data class GoalFormUiState(
 @HiltViewModel
 class GoalsViewModel @Inject constructor(
     private val habitRepository: HabitRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val goalsRepository: GoalsRepository
 ) : ViewModel() {
     private val _goals = MutableStateFlow<List<GoalUi>>(emptyList())
     val goals: StateFlow<List<GoalUi>> = _goals.asStateFlow()
@@ -64,6 +67,14 @@ class GoalsViewModel @Inject constructor(
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            goalsRepository.observeGoals().collect { persistedGoals ->
+                _goals.value = persistedGoals
+            }
+        }
+    }
 
     fun onTitleChange(value: String) {
         _formState.value = _formState.value.copy(title = value)
@@ -141,10 +152,10 @@ class GoalsViewModel @Inject constructor(
             steps = state.steps
         )
 
-        _goals.value = _goals.value + goal
         _formState.value = GoalFormUiState()
 
         viewModelScope.launch {
+            goalsRepository.saveGoal(goal)
             val createdSteps = generateLinkedSteps(goal)
             _message.value = if (goal.steps.isEmpty()) {
                 "Meta criada."
@@ -155,8 +166,10 @@ class GoalsViewModel @Inject constructor(
     }
 
     fun deleteGoal(goalId: String) {
-        _goals.value = _goals.value.filterNot { it.id == goalId }
-        _message.value = "Meta excluída."
+        viewModelScope.launch {
+            goalsRepository.deleteGoal(goalId)
+            _message.value = "Meta excluída."
+        }
     }
 
     fun clearMessage() {
