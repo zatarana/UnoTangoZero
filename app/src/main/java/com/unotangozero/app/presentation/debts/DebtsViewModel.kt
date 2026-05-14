@@ -185,16 +185,19 @@ class DebtsViewModel @Inject constructor(
                 accountId = accountId
             )
 
-            movementRepository.addMovement(payoffMovement)
-                .onSuccess {
-                    debtRepository.save(paidDebt)
-                        .onSuccess { _message.value = buildPayoffMessage(debt.remainingAmountInCents, finalPaidAmountInCents) + " Despesa registrada em Finanças." }
-                        .onFailure {
-                            movementRepository.deleteMovement(payoffMovement.id)
-                            _message.value = it.message ?: "Despesa revertida. Não foi possível quitar a dívida."
-                        }
-                }
-                .onFailure { _message.value = it.message ?: "Não foi possível registrar a despesa da quitação." }
+            val movementResult = movementRepository.addMovement(payoffMovement)
+            if (movementResult.isFailure) {
+                _message.value = movementResult.exceptionOrNull()?.message ?: "Não foi possível registrar a despesa da quitação."
+                return@launch
+            }
+
+            val debtResult = debtRepository.save(paidDebt)
+            if (debtResult.isSuccess) {
+                _message.value = buildPayoffMessage(debt.remainingAmountInCents, finalPaidAmountInCents) + " Despesa registrada em Finanças."
+            } else {
+                movementRepository.deleteMovement(payoffMovement.id)
+                _message.value = debtResult.exceptionOrNull()?.message ?: "Despesa revertida. Não foi possível quitar a dívida."
+            }
         }
     }
 
