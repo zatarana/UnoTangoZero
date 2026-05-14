@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.domain.models.Habit
 import com.unotangozero.app.domain.models.HabitFrequency
+import com.unotangozero.app.domain.models.HabitTrackingType
 import com.unotangozero.app.domain.repositories.HabitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,13 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
-import java.util.Locale
 import javax.inject.Inject
-
-enum class HabitTrackingType(val displayName: String) {
-    YES_NO("Sim/não"),
-    NUMERIC("Numérico")
-}
 
 enum class HabitScheduleType(val displayName: String) {
     DAILY("Diário"),
@@ -43,8 +38,8 @@ data class HabitFormUiState(
     val frequency: HabitFrequency
         get() = when (scheduleType) {
             HabitScheduleType.DAILY -> HabitFrequency.DAILY
-            HabitScheduleType.WEEKLY,
-            HabitScheduleType.SPECIFIC_DAYS -> HabitFrequency.WEEKLY
+            HabitScheduleType.WEEKLY -> HabitFrequency.WEEKLY
+            HabitScheduleType.SPECIFIC_DAYS -> HabitFrequency.CUSTOM
         }
 }
 
@@ -138,9 +133,14 @@ class HabitsViewModel @Inject constructor(
                 habitRepository.createHabit(
                     Habit(
                         name = name,
-                        description = buildHabitDescription(state),
+                        description = state.description.trim(),
                         frequency = state.frequency,
+                        trackingType = state.trackingType,
                         goal = if (state.trackingType == HabitTrackingType.NUMERIC) dailyGoal else 1,
+                        specificDays = if (state.scheduleType == HabitScheduleType.SPECIFIC_DAYS) state.selectedDays else emptySet(),
+                        reminderEnabled = state.reminderEnabled,
+                        reminderHour = state.reminderHour,
+                        reminderMinute = state.reminderMinute,
                         color = state.colorHex,
                         icon = state.icon
                     )
@@ -180,25 +180,6 @@ class HabitsViewModel @Inject constructor(
 
     fun clearMessage() {
         _message.value = null
-    }
-
-    private fun buildHabitDescription(state: HabitFormUiState): String {
-        val userDescription = state.description.trim()
-        val metadata = buildList {
-            add("Tipo: ${state.trackingType.displayName}")
-            if (state.trackingType == HabitTrackingType.NUMERIC) add("Meta diária: ${state.dailyGoalText.ifBlank { "1" }}")
-            add("Frequência: ${state.scheduleType.displayName}")
-            if (state.scheduleType == HabitScheduleType.SPECIFIC_DAYS) {
-                add("Dias: ${state.selectedDays.sortedBy { it.value }.joinToString(", ") { it.shortPtBr() }}")
-            }
-            add("Ícone: ${state.icon}")
-            add("Cor: ${state.colorHex}")
-            if (state.reminderEnabled) {
-                add("Lembrete: %02d:%02d".format(Locale("pt", "BR"), state.reminderHour, state.reminderMinute))
-            }
-        }.joinToString("\n")
-
-        return if (userDescription.isBlank()) metadata else "$userDescription\n\n$metadata"
     }
 }
 
