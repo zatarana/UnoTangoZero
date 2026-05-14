@@ -11,11 +11,13 @@ import com.unotangozero.app.domain.models.FinancialAccount
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.repositories.DebtRepository
+import com.unotangozero.app.presentation.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -48,6 +50,16 @@ class DebtsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
+        )
+
+    val debtsUiState: StateFlow<UiState<List<Debt>>> = debtRepository
+        .observeAll()
+        .map<List<Debt>, UiState<List<Debt>>> { UiState.Success(it) }
+        .catch { emit(UiState.Error(it.message ?: "Não foi possível carregar as dívidas.")) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = UiState.Loading
         )
 
     val summary: StateFlow<DebtSummary> = debtRepository
