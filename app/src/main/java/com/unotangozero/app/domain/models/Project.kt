@@ -2,49 +2,25 @@ package com.unotangozero.app.domain.models
 
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.util.UUID
 
+/**
+ * Domain model representing a project.
+ */
 data class Project(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val description: String? = null,
-    val deadline: LocalDate? = null,
-    val sections: List<ProjectSection> = emptyList(),
-    val tasks: List<ProjectTask> = emptyList(),
-    val isArchived: Boolean = false,
+    val id: Long = 0,
+    val name: String = "",
+    val description: String = "",
+    val status: ProjectStatus = ProjectStatus.ACTIVE,
+    val startDate: LocalDate = LocalDate.now(),
+    val endDate: LocalDate? = null,
+    val owner: String = "",
+    val color: String = "#4A90E2",
+    val progress: Int = 0,
+    val tasks: List<Task> = emptyList(),
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now()
-) {
-    val allTasks: List<ProjectTask>
-        get() = tasks + sections.flatMap { it.tasks }
-
-    val totalTasks: Int
-        get() = allTasks.size
-
-    val completedTasks: Int
-        get() = allTasks.count { it.isCompleted }
-
-    val progressPercent: Int
-        get() = if (totalTasks == 0) 0 else ((completedTasks.toDouble() / totalTasks.toDouble()) * 100).toInt()
-}
-
-data class ProjectSection(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val isCollapsed: Boolean = false,
-    val tasks: List<ProjectTask> = emptyList(),
-    val createdAt: LocalDateTime = LocalDateTime.now()
-) {
-    val totalTasks: Int
-        get() = tasks.size
-
-    val completedTasks: Int
-        get() = tasks.count { it.isCompleted }
-}
-
-data class ProjectTask(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val isCompleted: Boolean = false,
-    val createdAt: LocalDateTime = LocalDateTime.now()
 )
+
+enum class ProjectStatus {
+    PLANNING, ACTIVE, ON_HOLD, COMPLETED, CANCELLED
+}
