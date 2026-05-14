@@ -36,6 +36,7 @@ import androidx.navigation.navArgument
 import com.unotangozero.app.presentation.budget.BudgetRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
+import com.unotangozero.app.presentation.goals.GoalsRoute
 
 @Composable
 fun AppNavigation() {
@@ -88,7 +89,7 @@ fun AppNavigation() {
             composable(AppRoute.Tasks.route) { PlaceholderScreen("Tarefas", AppRoute.Tasks.route, navController) }
             composable(AppRoute.Habits.route) { PlaceholderScreen("Hábitos", AppRoute.Habits.route, navController) }
             composable(AppRoute.Budget.route) { BudgetRoute() }
-            composable(AppRoute.Goals.route) { PlaceholderScreen("Metas", AppRoute.Goals.route, navController) }
+            composable(AppRoute.Goals.route) { GoalsRoute() }
 
             composable(
                 route = DetailRoute.TaskDetail.pattern,
