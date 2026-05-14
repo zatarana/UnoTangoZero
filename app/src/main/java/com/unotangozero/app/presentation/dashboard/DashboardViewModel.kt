@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import javax.inject.Inject
@@ -45,6 +44,21 @@ class DashboardViewModel @Inject constructor(
                     dueDate = movement.date
                 )
             }
+        val monthlyExpensesByCategory = movements
+            .filter { movement ->
+                movement.type == FinancialMovementType.EXPENSE &&
+                    movement.date.year == today.year &&
+                    movement.date.month == today.month
+            }
+            .groupBy { movement -> movement.category?.takeIf { it.isNotBlank() } ?: "Sem categoria" }
+            .map { (category, categoryMovements) ->
+                ExpenseCategorySliceUi(
+                    category = category,
+                    amountInCents = categoryMovements.sumOf { it.amountInCents }
+                )
+            }
+            .filter { it.amountInCents > 0L }
+            .sortedByDescending { it.amountInCents }
 
         UiState.Success(
             DashboardUiState(
@@ -52,7 +66,8 @@ class DashboardViewModel @Inject constructor(
                 upcomingBills = upcomingBills,
                 todayTasksCount = todayTasks.count { !it.completed },
                 maxHabitStreak = habits.filter { it.active }.maxOfOrNull { it.currentStreak } ?: 0,
-                averageGoalsProgressPercent = 0
+                averageGoalsProgressPercent = 0,
+                monthlyExpenseSlices = monthlyExpensesByCategory
             )
         )
     }
@@ -69,7 +84,8 @@ data class DashboardUiState(
     val upcomingBills: List<UpcomingBillUi> = emptyList(),
     val todayTasksCount: Int = 0,
     val maxHabitStreak: Int = 0,
-    val averageGoalsProgressPercent: Int = 0
+    val averageGoalsProgressPercent: Int = 0,
+    val monthlyExpenseSlices: List<ExpenseCategorySliceUi> = emptyList()
 )
 
 data class UpcomingBillUi(
@@ -77,4 +93,9 @@ data class UpcomingBillUi(
     val title: String,
     val amountInCents: Long,
     val dueDate: LocalDate
+)
+
+data class ExpenseCategorySliceUi(
+    val category: String,
+    val amountInCents: Long
 )
