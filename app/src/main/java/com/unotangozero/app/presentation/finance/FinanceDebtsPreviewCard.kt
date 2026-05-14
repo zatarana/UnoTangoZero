@@ -50,6 +50,8 @@ fun FinanceDebtsPreviewCard(
     val debts by viewModel.debts.collectAsState()
     val summary by viewModel.summary.collectAsState()
     val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val pendingDebts = debts.count { it.status == DebtStatus.PENDING }
+    val partiallyPaidDebts = debts.count { it.status == DebtStatus.PARTIALLY_PAID }
     val totalRemainingInCents = debts
         .filter { it.status != DebtStatus.PAID }
         .sumOf { it.remainingAmountInCents }
@@ -67,8 +69,12 @@ fun FinanceDebtsPreviewCard(
                 Text(money(totalRemainingInCents), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                 Text("em aberto", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Ativas", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(summary.activeDebts.toString(), fontWeight = FontWeight.Bold)
+                    Text("Pendentes", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(pendingDebts.toString(), fontWeight = FontWeight.Bold)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Em pagamento", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(partiallyPaidDebts.toString(), fontWeight = FontWeight.Bold)
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Quitadas", color = MaterialTheme.colorScheme.onSurfaceVariant)
