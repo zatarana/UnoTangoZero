@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -24,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -51,6 +53,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.enums.DebtStatus
 import com.unotangozero.app.domain.models.Debt
 import com.unotangozero.app.domain.models.DebtSummary
+import com.unotangozero.app.domain.models.FinancialAccount
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -62,6 +65,7 @@ import java.util.Locale
 fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
     val debts by viewModel.debts.collectAsState()
     val summary by viewModel.summary.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
     val editorState by viewModel.editorState.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -79,6 +83,7 @@ fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
         DebtsScreen(
             debts = debts,
             summary = summary,
+            accounts = accounts,
             editorState = editorState,
             onCreditorChange = viewModel::onCreditorChange,
             onAmountChange = viewModel::onAmountChange,
@@ -99,6 +104,7 @@ fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
 fun DebtsScreen(
     debts: List<Debt>,
     summary: DebtSummary,
+    accounts: List<FinancialAccount>,
     editorState: DebtEditorUiState,
     onCreditorChange: (String) -> Unit,
     onAmountChange: (String) -> Unit,
@@ -109,7 +115,7 @@ fun DebtsScreen(
     onSaveDebt: () -> Unit,
     onCancelEdit: () -> Unit,
     onStartEdit: (Debt) -> Unit,
-    onMarkAsPaid: (Debt, String) -> Unit,
+    onMarkAsPaid: (Debt, String, String?) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
     val openDebts = remember(debts) { debts.filter { it.status != DebtStatus.PAID }.sortedBy { it.dueDate } }
@@ -157,6 +163,7 @@ fun DebtsScreen(
                 items(items = openDebts, key = { it.id }) { debt ->
                     DebtCard(
                         debt = debt,
+                        accounts = accounts,
                         onStartEdit = onStartEdit,
                         onMarkAsPaid = onMarkAsPaid,
                         onDeleteDebt = onDeleteDebt
@@ -171,6 +178,7 @@ fun DebtsScreen(
                 items(items = paidDebts, key = { it.id }) { debt ->
                     DebtCard(
                         debt = debt,
+                        accounts = accounts,
                         onStartEdit = onStartEdit,
                         onMarkAsPaid = onMarkAsPaid,
                         onDeleteDebt = onDeleteDebt
@@ -303,7 +311,13 @@ private fun EmptySectionCard(text: String) {
 }
 
 @Composable
-private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Debt, String) -> Unit, onDeleteDebt: (Debt) -> Unit) {
+private fun DebtCard(
+    debt: Debt,
+    accounts: List<FinancialAccount>,
+    onStartEdit: (Debt) -> Unit,
+    onMarkAsPaid: (Debt, String, String?) -> Unit,
+    onDeleteDebt: (Debt) -> Unit
+) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
     val paidProgress = if (debt.originalAmountInCents > 0L) {
         ((debt.originalAmountInCents - debt.remainingAmountInCents).toDouble() / debt.originalAmountInCents.toDouble()).toFloat().coerceIn(0f, 1f)
@@ -311,6 +325,7 @@ private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Deb
     val paidPercent = (paidProgress * 100).toInt()
     var isPayoffDialogOpen by remember { mutableStateOf(false) }
     var finalPaidAmountText by remember(debt.id, debt.remainingAmountInCents) { mutableStateOf(centsToMoneyText(debt.remainingAmountInCents)) }
+    var selectedAccountId by remember(accounts, debt.id) { mutableStateOf(accounts.firstOrNull()?.id) }
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -356,12 +371,26 @@ private fun DebtCard(debt: Debt, onStartEdit: (Debt) -> Unit, onMarkAsPaid: (Deb
                         prefix = { Text("R$ ") },
                         singleLine = true
                     )
+                    Text("Conta usada para pagar", style = MaterialTheme.typography.labelLarge)
+                    if (accounts.isEmpty()) {
+                        Text("Cadastre uma conta em Finanças > Contas antes de registrar a despesa automaticamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(accounts, key = { it.id }) { account ->
+                                FilterChip(
+                                    selected = selectedAccountId == account.id,
+                                    onClick = { selectedAccountId = account.id },
+                                    label = { Text(account.name) }
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onMarkAsPaid(debt, finalPaidAmountText)
+                        onMarkAsPaid(debt, finalPaidAmountText, selectedAccountId)
                         isPayoffDialogOpen = false
                     }
                 ) { Text("Quitar") }
