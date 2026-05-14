@@ -240,6 +240,8 @@ private fun DebtEditorCard(
 
 @Composable
 private fun DebtSummaryCard(summary: DebtSummary, debts: List<Debt>) {
+    val pendingCount = debts.count { it.status == DebtStatus.PENDING }
+    val partialCount = debts.count { it.status == DebtStatus.PARTIALLY_PAID }
     val totalOriginal = debts.sumOf { it.originalAmountInCents }.coerceAtLeast(0L)
     val totalRemaining = debts.filter { it.status != DebtStatus.PAID }.sumOf { it.remainingAmountInCents }.coerceAtLeast(0L)
     val paidAmount = (totalOriginal - totalRemaining).coerceAtLeast(0L)
@@ -252,7 +254,7 @@ private fun DebtSummaryCard(summary: DebtSummary, debts: List<Debt>) {
             Text(formatMoney(totalRemaining), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("em aberto • $progressPercent% quitado", style = MaterialTheme.typography.bodyMedium)
             LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-            Text("${summary.activeDebts} ativa(s) • ${summary.paidDebts} paga(s)", style = MaterialTheme.typography.bodyMedium)
+            Text("$pendingCount pendente(s) • $partialCount em pagamento • ${summary.paidDebts} quitada(s)", style = MaterialTheme.typography.bodyMedium)
             summary.nextDueDate?.let {
                 Text(
                     text = "Próximo vencimento: ${it.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} (${formatMoney(summary.nextDueAmountInCents)})",
