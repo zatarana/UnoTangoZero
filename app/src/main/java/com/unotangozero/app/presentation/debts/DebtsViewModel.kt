@@ -2,15 +2,21 @@ package com.unotangozero.app.presentation.debts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.unotangozero.app.data.accounts.FinancialAccountRepository
+import com.unotangozero.app.data.finance.FinancialMovementRepository
 import com.unotangozero.app.domain.enums.DebtStatus
 import com.unotangozero.app.domain.models.Debt
 import com.unotangozero.app.domain.models.DebtSummary
+import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.domain.models.FinancialMovement
+import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.repositories.DebtRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -32,7 +38,9 @@ data class DebtEditorUiState(
 
 @HiltViewModel
 class DebtsViewModel @Inject constructor(
-    private val debtRepository: DebtRepository
+    private val debtRepository: DebtRepository,
+    accountRepository: FinancialAccountRepository,
+    private val movementRepository: FinancialMovementRepository
 ) : ViewModel() {
     val debts: StateFlow<List<Debt>> = debtRepository
         .observeAll()
@@ -49,6 +57,10 @@ class DebtsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = DebtSummary()
         )
+
+    val accounts: StateFlow<List<FinancialAccount>> = accountRepository.accounts
+        .map { list -> list.filter { !it.isArchived } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _editorState = MutableStateFlow(DebtEditorUiState())
     val editorState: StateFlow<DebtEditorUiState> = _editorState.asStateFlow()
@@ -145,10 +157,14 @@ class DebtsViewModel @Inject constructor(
         }
     }
 
-    fun markAsPaid(debt: Debt, finalPaidAmountText: String) {
+    fun markAsPaid(debt: Debt, finalPaidAmountText: String, accountId: String?) {
         val finalPaidAmountInCents = parseMoneyToCents(finalPaidAmountText)
         if (finalPaidAmountInCents <= 0L) {
             _message.value = "Digite o valor final pago."
+            return
+        }
+        if (accountId.isNullOrBlank()) {
+            _message.value = "Selecione a conta usada para pagar."
             return
         }
 
@@ -160,8 +176,21 @@ class DebtsViewModel @Inject constructor(
                 status = DebtStatus.PAID,
                 updatedAt = LocalDateTime.now()
             )
+            val payoffMovement = FinancialMovement(
+                type = FinancialMovementType.EXPENSE,
+                amountInCents = finalPaidAmountInCents,
+                date = LocalDate.now(),
+                description = "Quitação de dívida - ${debt.creditor}",
+                category = "Dívidas",
+                accountId = accountId
+            )
+
             debtRepository.save(paidDebt)
-                .onSuccess { _message.value = buildPayoffMessage(debt.remainingAmountInCents, finalPaidAmountInCents) }
+                .onSuccess {
+                    movementRepository.addMovement(payoffMovement)
+                        .onSuccess { _message.value = buildPayoffMessage(debt.remainingAmountInCents, finalPaidAmountInCents) + " Despesa registrada em Finanças." }
+                        .onFailure { _message.value = "Dívida quitada, mas não foi possível registrar a despesa." }
+                }
                 .onFailure { _message.value = it.message ?: "Não foi possível quitar a dívida." }
         }
     }
