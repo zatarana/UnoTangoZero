@@ -5,22 +5,28 @@ import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.bills.PlannedBillRepository
 import com.unotangozero.app.data.budget.EnvelopeBudgetRepository
 import com.unotangozero.app.data.finance.FinancialMovementRepository
+import com.unotangozero.app.domain.models.FinancialAccount
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.MonthlyBudgetSummary
 import com.unotangozero.app.domain.models.PlannedBill
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
+import kotlin.math.round
 
 data class FinanceDashboardUiState(
     val totalBalanceInCents: Long = 0L,
     val accountCount: Int = 0,
+    val accounts: List<FinancialAccount> = emptyList(),
     val monthlyIncomeInCents: Long = 0L,
     val monthlyExpenseInCents: Long = 0L,
     val monthlyAdjustmentInCents: Long = 0L,
@@ -35,7 +41,7 @@ data class FinanceDashboardUiState(
 
 @HiltViewModel
 class FinanceDashboardViewModel @Inject constructor(
-    movementRepository: FinancialMovementRepository,
+    private val movementRepository: FinancialMovementRepository,
     budgetRepository: EnvelopeBudgetRepository,
     plannedBillRepository: PlannedBillRepository
 ) : ViewModel() {
@@ -59,6 +65,7 @@ class FinanceDashboardViewModel @Inject constructor(
         FinanceDashboardUiState(
             totalBalanceInCents = balances.sumOf { it.currentBalanceInCents },
             accountCount = balances.size,
+            accounts = balances.map { it.account },
             monthlyIncomeInCents = income,
             monthlyExpenseInCents = expenses,
             monthlyAdjustmentInCents = adjustments,
@@ -73,4 +80,57 @@ class FinanceDashboardViewModel @Inject constructor(
             }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FinanceDashboardUiState())
+
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+
+    fun registerQuickTransaction(
+        amountText: String,
+        type: FinancialMovementType,
+        category: String,
+        accountId: String?,
+        date: LocalDate
+    ) {
+        val amountInCents = parseMoneyToCents(amountText)
+        if (amountInCents <= 0L) {
+            _message.value = "Digite um valor maior que zero."
+            return
+        }
+        if (type != FinancialMovementType.EXPENSE && type != FinancialMovementType.INCOME) {
+            _message.value = "Escolha despesa ou receita."
+            return
+        }
+        if (category.isBlank()) {
+            _message.value = "Selecione uma categoria."
+            return
+        }
+        if (accountId.isNullOrBlank()) {
+            _message.value = "Selecione uma conta."
+            return
+        }
+
+        viewModelScope.launch {
+            val movement = FinancialMovement(
+                type = type,
+                amountInCents = amountInCents,
+                date = date,
+                description = category,
+                category = category,
+                accountId = accountId
+            )
+            movementRepository.addMovement(movement)
+                .onSuccess { _message.value = "Lançamento salvo." }
+                .onFailure { _message.value = it.message ?: "Não foi possível salvar o lançamento." }
+        }
+    }
+
+    fun clearMessage() {
+        _message.value = null
+    }
+
+    private fun parseMoneyToCents(rawValue: String): Long {
+        val normalized = rawValue.trim().replace(".", "").replace(",", ".")
+        val amount = normalized.toDoubleOrNull() ?: return 0L
+        return round(amount * 100).toLong()
+    }
 }
