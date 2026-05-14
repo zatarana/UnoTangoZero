@@ -176,13 +176,11 @@ class DebtsViewModel @Inject constructor(
                 status = DebtStatus.PAID,
                 updatedAt = LocalDateTime.now()
             )
-            val payoffMovement = FinancialMovement(
-                type = FinancialMovementType.EXPENSE,
+            val payoffMovement = buildDebtExpenseMovement(
+                debt = debt,
                 amountInCents = finalPaidAmountInCents,
-                date = LocalDate.now(),
-                description = "Quitação de dívida - ${debt.creditor}",
-                category = "Dívidas",
-                accountId = accountId
+                accountId = accountId,
+                descriptionPrefix = "Quitação de dívida"
             )
 
             val movementResult = movementRepository.addMovement(payoffMovement)
@@ -201,6 +199,50 @@ class DebtsViewModel @Inject constructor(
         }
     }
 
+    fun registerPartialPayment(debt: Debt, paidAmountText: String, accountId: String?) {
+        val paidAmountInCents = parseMoneyToCents(paidAmountText)
+        if (paidAmountInCents <= 0L) {
+            _message.value = "Digite o valor pago."
+            return
+        }
+        if (paidAmountInCents >= debt.remainingAmountInCents) {
+            _message.value = "Para pagar o valor total ou maior, use Quitar integralmente."
+            return
+        }
+        if (accountId.isNullOrBlank()) {
+            _message.value = "Selecione a conta usada para pagar."
+            return
+        }
+
+        viewModelScope.launch {
+            val updatedDebt = debt.copy(
+                remainingAmountInCents = (debt.remainingAmountInCents - paidAmountInCents).coerceAtLeast(0L),
+                status = DebtStatus.PARTIALLY_PAID,
+                updatedAt = LocalDateTime.now()
+            )
+            val paymentMovement = buildDebtExpenseMovement(
+                debt = debt,
+                amountInCents = paidAmountInCents,
+                accountId = accountId,
+                descriptionPrefix = "Pagamento parcial de dívida"
+            )
+
+            val movementResult = movementRepository.addMovement(paymentMovement)
+            if (movementResult.isFailure) {
+                _message.value = movementResult.exceptionOrNull()?.message ?: "Não foi possível registrar a despesa do pagamento."
+                return@launch
+            }
+
+            val debtResult = debtRepository.save(updatedDebt)
+            if (debtResult.isSuccess) {
+                _message.value = "Pagamento parcial registrado. Saldo restante: ${formatMoney(updatedDebt.remainingAmountInCents)}."
+            } else {
+                movementRepository.deleteMovement(paymentMovement.id)
+                _message.value = debtResult.exceptionOrNull()?.message ?: "Despesa revertida. Não foi possível atualizar a dívida."
+            }
+        }
+    }
+
     fun deleteDebt(debt: Debt) {
         viewModelScope.launch {
             debtRepository.delete(debt.id)
@@ -214,6 +256,22 @@ class DebtsViewModel @Inject constructor(
 
     fun clearMessage() {
         _message.value = null
+    }
+
+    private fun buildDebtExpenseMovement(
+        debt: Debt,
+        amountInCents: Long,
+        accountId: String,
+        descriptionPrefix: String
+    ): FinancialMovement {
+        return FinancialMovement(
+            type = FinancialMovementType.EXPENSE,
+            amountInCents = amountInCents,
+            date = LocalDate.now(),
+            description = "$descriptionPrefix - ${debt.creditor}",
+            category = "Dívidas",
+            accountId = accountId
+        )
     }
 
     private fun String.filterMoneyChars(): String = filter { it.isDigit() || it == ',' || it == '.' }
