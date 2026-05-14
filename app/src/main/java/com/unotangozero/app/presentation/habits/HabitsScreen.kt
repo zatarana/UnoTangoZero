@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -138,11 +139,12 @@ fun HabitsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Hábitos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Lista do dia, sequências, XP e conquistas para manter constância.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Lista do dia, sequências, XP, conquistas e estatísticas para manter constância.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { HabitGamificationCard(habits = habits) }
+            item { HabitStatisticsCard(habits = habits) }
             item { HabitSummaryCard(habits = habits) }
             item { TodayHabitCard(todayHabits = todayHabits) }
 
@@ -236,6 +238,102 @@ private fun HabitGamificationCard(habits: List<Habit>) {
                 items(gamification.badges, key = { it.title }) { badge ->
                     AssistChip(onClick = {}, label = { Text("${badge.icon} ${badge.title}") })
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HabitStatisticsCard(habits: List<Habit>) {
+    val stats = remember(habits) { buildHabitStatistics(habits) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Estatísticas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatisticMiniCard(modifier = Modifier.weight(1f), title = "Melhor sequência", value = "${stats.bestStreak}d")
+                StatisticMiniCard(modifier = Modifier.weight(1f), title = "Total concluído", value = stats.totalCompleted.toString())
+            }
+            Text("Calendário anual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            AnnualHeatMap(days = stats.heatMapDays)
+            HeatMapLegend()
+            Text("Histórico de conclusão", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            CompletionBarChart(points = stats.barPoints)
+        }
+    }
+}
+
+@Composable
+private fun StatisticMiniCard(modifier: Modifier = Modifier, title: String, value: String) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+@Composable
+private fun AnnualHeatMap(days: List<HeatMapDay>) {
+    val leadingBlanks = days.firstOrNull()?.date?.dayOfWeek?.let { it.value % 7 } ?: 0
+    val cells = List(leadingBlanks) { null } + days
+    val weeks = cells.chunked(7)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(weeks) { week ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(7) { index ->
+                    val day = week.getOrNull(index)
+                    Box(
+                        modifier = Modifier
+                            .size(11.dp)
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(day?.let { heatMapColor(it.count) } ?: Color.Transparent)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeatMapLegend() {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Menos", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        listOf(0, 1, 2, 4).forEach { value ->
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .background(heatMapColor(value))
+            )
+        }
+        Text("Mais", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CompletionBarChart(points: List<BarPoint>) {
+    val maxValue = (points.maxOfOrNull { it.count } ?: 1).coerceAtLeast(1)
+    Row(
+        modifier = Modifier.fillMaxWidth().height(150.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        points.forEach { point ->
+            val progress = point.count / maxValue.toFloat()
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                Text(point.count.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((22 + 96 * progress).dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Text(point.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -475,6 +573,23 @@ private data class HabitBadgeUi(
     val title: String
 )
 
+private data class HabitStatisticsUi(
+    val bestStreak: Int,
+    val totalCompleted: Int,
+    val heatMapDays: List<HeatMapDay>,
+    val barPoints: List<BarPoint>
+)
+
+private data class HeatMapDay(
+    val date: LocalDate,
+    val count: Int
+)
+
+private data class BarPoint(
+    val label: String,
+    val count: Int
+)
+
 private fun buildHabitGamification(habits: List<Habit>): HabitGamificationUi {
     val completedCount = habits.sumOf { habit -> habit.checkIns.sumOf { it.completedTimes }.coerceAtLeast(if (habit.lastCheckIn != null) 1 else 0) }
     val streakBonus = habits.sumOf { it.currentStreak } * 2
@@ -499,6 +614,41 @@ private fun buildHabitGamification(habits: List<Habit>): HabitGamificationUi {
         levelProgress = xpIntoLevel / XP_PER_LEVEL.toFloat(),
         badges = badges
     )
+}
+
+private fun buildHabitStatistics(habits: List<Habit>): HabitStatisticsUi {
+    val completionEvents = habits.flatMap { habit ->
+        val checkInEvents = habit.checkIns.flatMap { checkIn -> List(checkIn.completedTimes.coerceAtLeast(1)) { checkIn.date } }
+        if (checkInEvents.isEmpty() && habit.lastCheckIn != null) listOf(habit.lastCheckIn) else checkInEvents
+    }
+    val completionsByDate = completionEvents.groupingBy { it }.eachCount()
+    val today = LocalDate.now()
+    val yearStart = LocalDate.of(today.year, 1, 1)
+    val heatMapDays = (0 until today.lengthOfYear()).map { offset ->
+        val date = yearStart.plusDays(offset.toLong())
+        HeatMapDay(date = date, count = completionsByDate[date] ?: 0)
+    }
+    val currentWeekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val barPoints = (7 downTo 0).map { weeksAgo ->
+        val start = currentWeekStart.minusWeeks(weeksAgo.toLong())
+        val end = start.plusDays(6)
+        val count = completionsByDate.filterKeys { !it.isBefore(start) && !it.isAfter(end) }.values.sum()
+        BarPoint(label = if (weeksAgo == 0) "Agora" else "-${weeksAgo}s", count = count)
+    }
+    return HabitStatisticsUi(
+        bestStreak = habits.maxOfOrNull { it.longestStreak } ?: 0,
+        totalCompleted = completionEvents.size,
+        heatMapDays = heatMapDays,
+        barPoints = barPoints
+    )
+}
+
+private fun heatMapColor(count: Int): Color = when {
+    count <= 0 -> Color(0xFFE6E0E9)
+    count == 1 -> Color(0xFFB8E6C0)
+    count == 2 -> Color(0xFF6FCF7F)
+    count == 3 -> Color(0xFF2E7D32)
+    else -> Color(0xFF14532D)
 }
 
 private const val XP_PER_LEVEL = 100
