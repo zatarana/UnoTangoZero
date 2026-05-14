@@ -36,6 +36,7 @@ data class FinanceDashboardUiState(
     val upcomingBills: List<PlannedBill> = emptyList(),
     val overdueBills: List<PlannedBill> = emptyList(),
     val recentMovements: List<FinancialMovement> = emptyList(),
+    val movements: List<FinancialMovement> = emptyList(),
     val next30DaysImpactInCents: Long = 0L
 )
 
@@ -75,6 +76,7 @@ class FinanceDashboardViewModel @Inject constructor(
             upcomingBills = upcoming.take(5),
             overdueBills = overdue.take(5),
             recentMovements = movements.sortedByDescending { it.date }.take(5),
+            movements = movements.sortedByDescending { it.date },
             next30DaysImpactInCents = upcoming.sumOf { bill ->
                 if (bill.type.name == "PAYABLE") -bill.amountInCents else bill.amountInCents
             }
@@ -121,6 +123,14 @@ class FinanceDashboardViewModel @Inject constructor(
             movementRepository.addMovement(movement)
                 .onSuccess { _message.value = "Lançamento salvo." }
                 .onFailure { _message.value = it.message ?: "Não foi possível salvar o lançamento." }
+        }
+    }
+
+    fun deleteMovement(movementId: String) {
+        viewModelScope.launch {
+            movementRepository.deleteMovement(movementId)
+                .onSuccess { _message.value = "Lançamento excluído." }
+                .onFailure { _message.value = it.message ?: "Não foi possível excluir o lançamento." }
         }
     }
 
