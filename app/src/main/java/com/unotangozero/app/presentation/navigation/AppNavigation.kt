@@ -2,12 +2,9 @@ package com.unotangozero.app.presentation.navigation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.BarChart
@@ -16,8 +13,6 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.unotangozero.app.presentation.dashboard.DashboardRoute
 
 @Composable
 fun AppNavigation() {
@@ -74,7 +70,7 @@ fun AppNavigation() {
             startDestination = AppRoute.Dashboard.route,
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable(AppRoute.Dashboard.route) { DashboardScreen(navController) }
+            composable(AppRoute.Dashboard.route) { DashboardRoute() }
             composable(AppRoute.Finance.route) { PlaceholderScreen("Finanças", AppRoute.Finance.route, navController) }
             composable(AppRoute.Tasks.route) { PlaceholderScreen("Tarefas", AppRoute.Tasks.route, navController) }
             composable(AppRoute.Habits.route) { PlaceholderScreen("Hábitos", AppRoute.Habits.route, navController) }
@@ -165,91 +161,6 @@ private sealed class DetailRoute(
 
     data object GoalDetail : DetailRoute("goal_detail/{goalId}", "goalId") {
         fun createRoute(goalId: String): String = "goal_detail/$goalId"
-    }
-}
-
-@Composable
-private fun DashboardScreen(navController: NavController) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Dashboard", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    text = "Tela inicial provisória para validar navegação por abas, rotas principais e rotas de detalhes.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        item { NavigationGrid(navController) }
-        item { DetailRoutesPreview(navController) }
-    }
-}
-
-@Composable
-private fun NavigationGrid(navController: NavController) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Finance, navController = navController)
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Tasks, navController = navController)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Habits, navController = navController)
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Budget, navController = navController)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Goals, navController = navController)
-            NavCard(modifier = Modifier.weight(1f), route = AppRoute.Dashboard, navController = navController)
-        }
-    }
-}
-
-@Composable
-private fun DetailRoutesPreview(navController: NavController) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Rotas de detalhes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                text = "Atalhos provisórios para validar passagem de argumentos tipados por NavType.StringType.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Button(onClick = { navController.navigate(DetailRoute.TaskDetail.createRoute("sample-task")) }) {
-                Text("Abrir task_detail/sample-task")
-            }
-            Button(onClick = { navController.navigate(DetailRoute.HabitDetail.createRoute("sample-habit")) }) {
-                Text("Abrir habit_detail/sample-habit")
-            }
-            Button(onClick = { navController.navigate(DetailRoute.FinanceDetail.createRoute("sample-movement")) }) {
-                Text("Abrir finance_detail/sample-movement")
-            }
-            Button(onClick = { navController.navigate(DetailRoute.GoalDetail.createRoute("sample-goal")) }) {
-                Text("Abrir goal_detail/sample-goal")
-            }
-        }
-    }
-}
-
-@Composable
-private fun NavCard(
-    modifier: Modifier = Modifier,
-    route: AppRoute,
-    navController: NavController
-) {
-    Card(
-        modifier = modifier,
-        onClick = { navController.navigateTopLevel(route.route) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Text(
-            text = route.label,
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
     }
 }
 
