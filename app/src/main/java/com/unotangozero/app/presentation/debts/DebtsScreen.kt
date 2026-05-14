@@ -1,6 +1,7 @@
 package com.unotangozero.app.presentation.debts
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +56,7 @@ import com.unotangozero.app.domain.enums.DebtStatus
 import com.unotangozero.app.domain.models.Debt
 import com.unotangozero.app.domain.models.DebtSummary
 import com.unotangozero.app.domain.models.FinancialAccount
+import com.unotangozero.app.presentation.common.UiState
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -64,7 +67,7 @@ import kotlin.math.round
 
 @Composable
 fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
-    val debts by viewModel.debts.collectAsState()
+    val debtsState by viewModel.debtsUiState.collectAsState()
     val summary by viewModel.summary.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val editorState by viewModel.editorState.collectAsState()
@@ -81,24 +84,28 @@ fun DebtsRoute(viewModel: DebtsViewModel = hiltViewModel()) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         SnackbarHost(hostState = snackbarHostState)
-        DebtsScreen(
-            debts = debts,
-            summary = summary,
-            accounts = accounts,
-            editorState = editorState,
-            onCreditorChange = viewModel::onCreditorChange,
-            onAmountChange = viewModel::onAmountChange,
-            onDescriptionChange = viewModel::onDescriptionChange,
-            onPreviousDueDay = viewModel::previousDueDay,
-            onNextDueDay = viewModel::nextDueDay,
-            onDueDateSelected = viewModel::onDueDateSelected,
-            onSaveDebt = viewModel::saveDebtFromEditor,
-            onCancelEdit = viewModel::cancelEditing,
-            onStartEdit = viewModel::startEditing,
-            onMarkAsPaid = viewModel::markAsPaid,
-            onRegisterPartialPayment = viewModel::registerPartialPayment,
-            onDeleteDebt = viewModel::deleteDebt
-        )
+        when (val state = debtsState) {
+            UiState.Loading -> DebtsLoadingState()
+            is UiState.Error -> DebtsErrorState(message = state.message)
+            is UiState.Success -> DebtsScreen(
+                debts = state.data,
+                summary = summary,
+                accounts = accounts,
+                editorState = editorState,
+                onCreditorChange = viewModel::onCreditorChange,
+                onAmountChange = viewModel::onAmountChange,
+                onDescriptionChange = viewModel::onDescriptionChange,
+                onPreviousDueDay = viewModel::previousDueDay,
+                onNextDueDay = viewModel::nextDueDay,
+                onDueDateSelected = viewModel::onDueDateSelected,
+                onSaveDebt = viewModel::saveDebtFromEditor,
+                onCancelEdit = viewModel::cancelEditing,
+                onStartEdit = viewModel::startEditing,
+                onMarkAsPaid = viewModel::markAsPaid,
+                onRegisterPartialPayment = viewModel::registerPartialPayment,
+                onDeleteDebt = viewModel::deleteDebt
+            )
+        }
     }
 }
 
@@ -206,6 +213,28 @@ fun DebtsScreen(
                         onDeleteDebt = onDeleteDebt
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebtsLoadingState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator()
+            Text("Carregando dívidas...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun DebtsErrorState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Não foi possível carregar as dívidas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(message)
             }
         }
     }
