@@ -1,5 +1,7 @@
 package com.unotangozero.app.presentation.finance
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,11 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.stickyHeader
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,9 +45,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,15 +60,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.unotangozero.app.domain.models.FinancialAccount
 import com.unotangozero.app.domain.models.FinancialMovement
 import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.PlannedBill
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -93,11 +115,12 @@ fun FinanceRoute(
         onOpenProjection = onOpenProjection,
         onOpenReconciliation = onOpenReconciliation,
         onOpenCategories = onOpenCategories,
-        onSaveQuickTransaction = viewModel::registerQuickTransaction
+        onSaveQuickTransaction = viewModel::registerQuickTransaction,
+        onDeleteMovement = viewModel::deleteMovement
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FinanceScreen(
     uiState: FinanceDashboardUiState,
@@ -111,9 +134,11 @@ fun FinanceScreen(
     onOpenProjection: () -> Unit,
     onOpenReconciliation: () -> Unit,
     onOpenCategories: () -> Unit,
-    onSaveQuickTransaction: (String, FinancialMovementType, String, String?, LocalDate) -> Unit
+    onSaveQuickTransaction: (String, FinancialMovementType, String, String?, LocalDate) -> Unit,
+    onDeleteMovement: (String) -> Unit
 ) {
     var isQuickSheetOpen by remember { mutableStateOf(false) }
+    val groupedMovements = remember(uiState.movements) { groupMovementsByDate(uiState.movements) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -132,9 +157,26 @@ fun FinanceScreen(
             item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenDebts, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
             item { FinanceDebtsPreviewCard(onOpenDebts) }
-            item { RecentMovementsCard(uiState, onOpenMovements) }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
             item { ProjectionPreviewCard(uiState, onOpenProjection) }
+
+            item { SectionTitle("Transações") }
+            if (groupedMovements.isEmpty()) {
+                item { EmptyCard("Nenhum lançamento ainda. Use o botão + para cadastrar receita ou despesa rapidamente.") }
+            } else {
+                groupedMovements.forEach { group ->
+                    stickyHeader(key = "header-${group.title}") {
+                        TransactionDateHeader(group.title)
+                    }
+                    items(group.movements, key = { it.id }) { movement ->
+                        SwipeableMovementRow(
+                            movement = movement,
+                            accounts = uiState.accounts,
+                            onDeleteMovement = onDeleteMovement
+                        )
+                    }
+                }
+            }
 
             if (uiState.overdueBills.isNotEmpty()) {
                 item { SectionTitle("Vencidas") }
@@ -347,33 +389,93 @@ private fun MiniMoneyCard(modifier: Modifier = Modifier, title: String, value: L
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecentMovementsCard(uiState: FinanceDashboardUiState, onOpenMovements: () -> Unit) {
-    Card(onClick = onOpenMovements, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Últimos lançamentos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-            if (uiState.recentMovements.isEmpty()) {
-                Text("Nenhum lançamento ainda. Use o botão + para cadastrar receita ou despesa rapidamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun SwipeableMovementRow(
+    movement: FinancialMovement,
+    accounts: List<FinancialAccount>,
+    onDeleteMovement: (String) -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
+                onDeleteMovement(movement.id)
+                true
             } else {
-                uiState.recentMovements.forEach { movement -> MovementPreviewRow(movement) }
+                false
             }
         }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.onErrorContainer)
+                    Text("Excluir", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    ) {
+        MovementListRow(movement = movement, accounts = accounts)
     }
 }
 
 @Composable
-private fun MovementPreviewRow(movement: FinancialMovement) {
+private fun MovementListRow(movement: FinancialMovement, accounts: List<FinancialAccount>) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM") }
     val signedAmount = when (movement.type) {
         FinancialMovementType.EXPENSE -> -movement.amountInCents
         else -> movement.amountInCents
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(movement.description, fontWeight = FontWeight.Bold)
-            Text("${movement.type.displayName} • ${movement.date.format(formatter)}${movement.category?.let { " • $it" } ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    val accountName = resolveAccountName(movement, accounts)
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(
+            Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(categoryIcon(movement), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(movement.description, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${movement.category ?: movement.type.displayName} • $accountName • ${movement.date.format(formatter)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(money(signedAmount), fontWeight = FontWeight.ExtraBold)
         }
-        Text(money(signedAmount), fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun TransactionDateHeader(title: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(vertical = 6.dp)
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -439,6 +541,47 @@ private fun SummaryLine(label: String, value: Long, isMoney: Boolean = true) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (isMoney) money(value) else value.toString(), fontWeight = FontWeight.Bold)
+    }
+}
+
+private data class MovementDateGroup(
+    val title: String,
+    val movements: List<FinancialMovement>
+)
+
+private fun groupMovementsByDate(movements: List<FinancialMovement>): List<MovementDateGroup> {
+    val today = LocalDate.now()
+    val yesterday = today.minusDays(1)
+    val currentMonth = YearMonth.now()
+    val todayItems = movements.filter { it.date == today }
+    val yesterdayItems = movements.filter { it.date == yesterday }
+    val thisMonthItems = movements.filter { it.date != today && it.date != yesterday && YearMonth.from(it.date) == currentMonth }
+    val previousItems = movements.filter { YearMonth.from(it.date) != currentMonth }
+
+    return listOf(
+        MovementDateGroup("Hoje", todayItems),
+        MovementDateGroup("Ontem", yesterdayItems),
+        MovementDateGroup("Este mês", thisMonthItems),
+        MovementDateGroup("Anteriores", previousItems)
+    ).filter { it.movements.isNotEmpty() }
+}
+
+private fun resolveAccountName(movement: FinancialMovement, accounts: List<FinancialAccount>): String {
+    val id = movement.accountId ?: movement.fromAccountId ?: movement.toAccountId
+    return accounts.firstOrNull { it.id == id }?.name ?: "Conta não informada"
+}
+
+private fun categoryIcon(movement: FinancialMovement): ImageVector {
+    val category = movement.category.orEmpty().lowercase(Locale.getDefault())
+    return when {
+        movement.type == FinancialMovementType.TRANSFER -> Icons.Default.SwapHoriz
+        "aliment" in category || "food" in category -> Icons.Default.Fastfood
+        "casa" in category || "moradia" in category || "aluguel" in category -> Icons.Default.Home
+        "saúde" in category || "saude" in category -> Icons.Default.LocalHospital
+        "compr" in category || "shopping" in category -> Icons.Default.ShoppingCart
+        "salário" in category || "salario" in category || "trabalho" in category -> Icons.Default.Work
+        movement.type == FinancialMovementType.INCOME -> Icons.Default.AttachMoney
+        else -> Icons.Default.Category
     }
 }
 
