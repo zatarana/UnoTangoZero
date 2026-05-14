@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.min
 
@@ -42,6 +43,14 @@ data class TaskEditorUiState(
 ) {
     val isEditing: Boolean = editingTask != null
 }
+
+private data class SmartTaskInput(
+    val title: String,
+    val dueDate: LocalDate,
+    val hour: Int,
+    val minute: Int,
+    val priority: Priority
+)
 
 @HiltViewModel
 class TasksViewModel @Inject constructor(
@@ -105,6 +114,36 @@ class TasksViewModel @Inject constructor(
     fun onTagFilterChange(tag: String?) { _selectedTag.value = tag }
     fun onEstimatedHoursChange(value: String) { _editorState.value = _editorState.value.copy(estimatedHoursText = value.filter { it.isDigit() }.take(3)) }
     fun onEstimatedMinutesChange(value: String) { _editorState.value = _editorState.value.copy(estimatedMinutesText = value.filter { it.isDigit() }.take(2)) }
+
+    fun addSmartTask(rawText: String) {
+        val smartTask = parseSmartTaskInput(rawText)
+        if (smartTask.title.isBlank()) {
+            _message.value = "Digite uma tarefa para adicionar."
+            return
+        }
+
+        viewModelScope.launch {
+            val task = Task(
+                title = smartTask.title,
+                dueDate = smartTask.dueDate,
+                category = TaskCategory.PERSONAL,
+                priority = smartTask.priority,
+                estimatedDurationMinutes = 0
+            )
+
+            taskRepository.save(task).onSuccess {
+                reminderScheduler.cancel(task.id)
+                scheduleReminderIfEnabled(task, smartTask.hour, smartTask.minute)
+                _message.value = "Tarefa adicionada para ${smartTask.dueDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))} às %02d:%02d.".format(
+                    Locale("pt", "BR"),
+                    smartTask.hour,
+                    smartTask.minute
+                )
+            }.onFailure {
+                _message.value = it.message ?: "Não foi possível adicionar a tarefa."
+            }
+        }
+    }
 
     fun startEditing(task: Task) {
         val duration = taskDurations.value[task.id] ?: task.estimatedDurationMinutes
@@ -200,6 +239,88 @@ class TasksViewModel @Inject constructor(
 
     fun clearMessage() { _message.value = null }
 
+    private fun parseSmartTaskInput(rawText: String): SmartTaskInput {
+        val today = LocalDate.now()
+        val defaultHour = _editorState.value.reminderHour
+        val defaultMinute = _editorState.value.reminderMinute
+        var workingText = rawText.trim()
+        var dueDate = today
+        var hour = defaultHour
+        var minute = defaultMinute
+        var priority = Priority.MEDIUM
+
+        val priorityRegex = Regex("""\bp([123])\b""", RegexOption.IGNORE_CASE)
+        val priorityMatch = priorityRegex.find(workingText)
+        if (priorityMatch != null) {
+            priority = when (priorityMatch.groupValues.getOrNull(1)) {
+                "1" -> Priority.HIGH
+                "2" -> Priority.MEDIUM
+                "3" -> Priority.LOW
+                else -> Priority.MEDIUM
+            }
+            workingText = workingText.replace(priorityMatch.value, " ")
+        }
+
+        val timeRegex = Regex("""(?:\bàs\b|\bas\b|@)?\s*(\d{1,2})(?:[:h](\d{2}))?\s*h?\b""", RegexOption.IGNORE_CASE)
+        val timeMatch = timeRegex.find(workingText)
+        if (timeMatch != null) {
+            val parsedHour = timeMatch.groupValues.getOrNull(1)?.toIntOrNull()
+            val parsedMinute = timeMatch.groupValues.getOrNull(2)?.takeIf { it.isNotBlank() }?.toIntOrNull() ?: 0
+            if (parsedHour != null && parsedHour in 0..23 && parsedMinute in 0..59) {
+                hour = parsedHour
+                minute = parsedMinute
+                workingText = workingText.replace(timeMatch.value, " ")
+            }
+        }
+
+        val normalized = workingText.lowercase(Locale("pt", "BR"))
+        when {
+            "amanhã" in normalized || "amanha" in normalized -> {
+                dueDate = today.plusDays(1)
+                workingText = workingText.replace(Regex("amanhã|amanha", RegexOption.IGNORE_CASE), " ")
+            }
+            "hoje" in normalized -> {
+                dueDate = today
+                workingText = workingText.replace(Regex("hoje", RegexOption.IGNORE_CASE), " ")
+            }
+            else -> {
+                findWeekdayInText(normalized)?.let { dayOfWeek ->
+                    dueDate = nextOrSame(dayOfWeek)
+                    workingText = removeWeekdayFromText(workingText)
+                }
+            }
+        }
+
+        val cleanTitle = workingText
+            .replace(Regex("""\b(às|as)\b""", RegexOption.IGNORE_CASE), " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+
+        return SmartTaskInput(
+            title = cleanTitle,
+            dueDate = dueDate,
+            hour = hour,
+            minute = minute,
+            priority = priority
+        )
+    }
+
+    private fun findWeekdayInText(text: String): DayOfWeek? {
+        return weekdayKeywords.firstOrNull { (keyword, _) -> keyword in text }?.second
+    }
+
+    private fun removeWeekdayFromText(text: String): String {
+        return weekdayKeywords.fold(text) { current, (keyword, _) ->
+            current.replace(Regex(keyword, RegexOption.IGNORE_CASE), " ")
+        }
+    }
+
+    private fun nextOrSame(dayOfWeek: DayOfWeek): LocalDate {
+        val today = LocalDate.now()
+        val daysToAdd = (dayOfWeek.value - today.dayOfWeek.value + 7) % 7
+        return today.plusDays(daysToAdd.toLong())
+    }
+
     private fun resetEditor(hour: Int = _editorState.value.reminderHour, minute: Int = _editorState.value.reminderMinute) {
         _editorState.value = TaskEditorUiState(reminderHour = hour, reminderMinute = minute)
     }
@@ -292,5 +413,16 @@ class TasksViewModel @Inject constructor(
 
     companion object {
         const val SUBTASKS_MARKER = "[[SUBTAREFAS]]"
+        private val weekdayKeywords = listOf(
+            "segunda" to DayOfWeek.MONDAY,
+            "terça" to DayOfWeek.TUESDAY,
+            "terca" to DayOfWeek.TUESDAY,
+            "quarta" to DayOfWeek.WEDNESDAY,
+            "quinta" to DayOfWeek.THURSDAY,
+            "sexta" to DayOfWeek.FRIDAY,
+            "sábado" to DayOfWeek.SATURDAY,
+            "sabado" to DayOfWeek.SATURDAY,
+            "domingo" to DayOfWeek.SUNDAY
+        )
     }
 }
