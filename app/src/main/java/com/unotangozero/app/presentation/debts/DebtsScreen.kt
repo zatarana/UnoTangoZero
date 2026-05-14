@@ -120,7 +120,8 @@ fun DebtsScreen(
     onRegisterPartialPayment: (Debt, String, String?) -> Unit,
     onDeleteDebt: (Debt) -> Unit
 ) {
-    val openDebts = remember(debts) { debts.filter { it.status != DebtStatus.PAID }.sortedBy { it.dueDate } }
+    val pendingDebts = remember(debts) { debts.filter { it.status == DebtStatus.PENDING }.sortedBy { it.dueDate } }
+    val partialDebts = remember(debts) { debts.filter { it.status == DebtStatus.PARTIALLY_PAID }.sortedBy { it.dueDate } }
     val paidDebts = remember(debts) { debts.filter { it.status == DebtStatus.PAID }.sortedByDescending { it.updatedAt } }
 
     LazyColumn(
@@ -132,7 +133,7 @@ fun DebtsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Dívidas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "Acompanhe dívidas abertas, quitadas e o progresso de pagamento.",
+                    text = "Acompanhe dívidas abertas, em pagamento, quitadas e o progresso de pagamento.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -158,11 +159,27 @@ fun DebtsScreen(
         if (debts.isEmpty()) {
             item { EmptyDebtsCard() }
         } else {
-            item { SectionTitle("Em aberto", openDebts.size) }
-            if (openDebts.isEmpty()) {
-                item { EmptySectionCard("Nenhuma dívida em aberto. Boa!") }
+            item { SectionTitle("Em aberto", pendingDebts.size) }
+            if (pendingDebts.isEmpty()) {
+                item { EmptySectionCard("Nenhuma dívida pendente.") }
             } else {
-                items(items = openDebts, key = { it.id }) { debt ->
+                items(items = pendingDebts, key = { it.id }) { debt ->
+                    DebtCard(
+                        debt = debt,
+                        accounts = accounts,
+                        onStartEdit = onStartEdit,
+                        onMarkAsPaid = onMarkAsPaid,
+                        onRegisterPartialPayment = onRegisterPartialPayment,
+                        onDeleteDebt = onDeleteDebt
+                    )
+                }
+            }
+
+            item { SectionTitle("Em pagamento", partialDebts.size) }
+            if (partialDebts.isEmpty()) {
+                item { EmptySectionCard("Nenhuma dívida parcialmente paga no momento.") }
+            } else {
+                items(items = partialDebts, key = { it.id }) { debt ->
                     DebtCard(
                         debt = debt,
                         accounts = accounts,
