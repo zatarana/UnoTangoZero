@@ -2,9 +2,8 @@ package com.unotangozero.app.presentation.habits
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.unotangozero.app.domain.enums.HabitFrequency
 import com.unotangozero.app.domain.models.Habit
-import com.unotangozero.app.domain.models.HabitLog
+import com.unotangozero.app.domain.models.HabitFrequency
 import com.unotangozero.app.domain.repositories.HabitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
-import java.time.LocalDate
 import java.util.Locale
 import javax.inject.Inject
 
@@ -55,7 +53,7 @@ class HabitsViewModel @Inject constructor(
     private val habitRepository: HabitRepository
 ) : ViewModel() {
     val habits: StateFlow<List<Habit>> = habitRepository
-        .observeActive()
+        .getAllHabits()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -136,41 +134,47 @@ class HabitsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val habit = Habit(
-                name = name,
-                description = buildHabitDescription(state),
-                frequency = state.frequency
-            )
-
-            habitRepository.save(habit)
-                .onSuccess {
-                    _formState.value = HabitFormUiState()
-                    _message.value = "Hábito criado."
-                }
-                .onFailure {
-                    _message.value = it.message ?: "Não foi possível criar o hábito."
-                }
+            runCatching {
+                habitRepository.createHabit(
+                    Habit(
+                        name = name,
+                        description = buildHabitDescription(state),
+                        frequency = state.frequency,
+                        goal = if (state.trackingType == HabitTrackingType.NUMERIC) dailyGoal else 1,
+                        color = state.colorHex,
+                        icon = state.icon
+                    )
+                )
+            }.onSuccess {
+                _formState.value = HabitFormUiState()
+                _message.value = "Hábito criado."
+            }.onFailure {
+                _message.value = it.message ?: "Não foi possível criar o hábito."
+            }
         }
     }
 
     fun completeToday(habit: Habit) {
         viewModelScope.launch {
-            val log = HabitLog(
-                habitId = habit.id,
-                completedDate = LocalDate.now()
-            )
-
-            habitRepository.log(log)
-                .onSuccess { _message.value = "Conclusão registrada para hoje." }
-                .onFailure { _message.value = it.message ?: "Não foi possível registrar o hábito." }
+            runCatching {
+                habitRepository.checkInHabit(habit.id)
+            }.onSuccess {
+                _message.value = "Hábito concluído. +10 XP!"
+            }.onFailure {
+                _message.value = it.message ?: "Não foi possível registrar o hábito."
+            }
         }
     }
 
     fun deleteHabit(habit: Habit) {
         viewModelScope.launch {
-            habitRepository.delete(habit.id)
-                .onSuccess { _message.value = "Hábito excluído." }
-                .onFailure { _message.value = it.message ?: "Não foi possível excluir o hábito." }
+            runCatching {
+                habitRepository.deleteHabit(habit.id)
+            }.onSuccess {
+                _message.value = "Hábito excluído."
+            }.onFailure {
+                _message.value = it.message ?: "Não foi possível excluir o hábito."
+            }
         }
     }
 
