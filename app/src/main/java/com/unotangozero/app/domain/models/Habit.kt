@@ -1,5 +1,6 @@
 package com.unotangozero.app.domain.models
 
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -11,7 +12,12 @@ data class Habit(
     val name: String = "",
     val description: String = "",
     val frequency: HabitFrequency = HabitFrequency.DAILY,
+    val trackingType: HabitTrackingType = HabitTrackingType.YES_NO,
     val goal: Int = 1, // Times per day/week/month
+    val specificDays: Set<DayOfWeek> = emptySet(),
+    val reminderEnabled: Boolean = false,
+    val reminderHour: Int = 8,
+    val reminderMinute: Int = 0,
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
     val lastCheckIn: LocalDate? = null,
@@ -24,6 +30,11 @@ data class Habit(
 
 enum class HabitFrequency {
     DAILY, WEEKLY, MONTHLY, CUSTOM
+}
+
+enum class HabitTrackingType(val displayName: String) {
+    YES_NO("Sim/não"),
+    NUMERIC("Numérico")
 }
 
 data class HabitCheckIn(
