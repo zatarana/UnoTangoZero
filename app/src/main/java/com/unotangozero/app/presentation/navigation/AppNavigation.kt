@@ -33,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.unotangozero.app.presentation.budget.BudgetRoute
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
 import com.unotangozero.app.presentation.finance.FinanceRoute
 
@@ -86,7 +87,7 @@ fun AppNavigation() {
             }
             composable(AppRoute.Tasks.route) { PlaceholderScreen("Tarefas", AppRoute.Tasks.route, navController) }
             composable(AppRoute.Habits.route) { PlaceholderScreen("Hábitos", AppRoute.Habits.route, navController) }
-            composable(AppRoute.Budget.route) { PlaceholderScreen("Orçamento", AppRoute.Budget.route, navController) }
+            composable(AppRoute.Budget.route) { BudgetRoute() }
             composable(AppRoute.Goals.route) { PlaceholderScreen("Metas", AppRoute.Goals.route, navController) }
 
             composable(
