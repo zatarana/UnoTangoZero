@@ -3,7 +3,10 @@ package com.unotangozero.app.presentation.budget
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.unotangozero.app.data.budget.EnvelopeBudgetRepository
+import com.unotangozero.app.data.finance.FinancialMovementRepository
 import com.unotangozero.app.domain.models.BudgetEnvelope
+import com.unotangozero.app.domain.models.FinancialMovement
+import com.unotangozero.app.domain.models.FinancialMovementType
 import com.unotangozero.app.domain.models.MonthlyBudgetSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +23,8 @@ import kotlin.math.round
 data class BudgetUiState(
     val yearMonth: String = YearMonth.now().toString(),
     val summary: MonthlyBudgetSummary? = null,
-    val currentMonthEnvelopes: List<BudgetEnvelope> = emptyList()
+    val currentMonthEnvelopes: List<BudgetEnvelope> = emptyList(),
+    val currentMonthExpenseMovements: List<FinancialMovement> = emptyList()
 )
 
 data class BudgetEnvelopeFormUiState(
@@ -34,17 +38,24 @@ data class BudgetEnvelopeFormUiState(
 
 @HiltViewModel
 class BudgetViewModel @Inject constructor(
-    private val envelopeBudgetRepository: EnvelopeBudgetRepository
+    private val envelopeBudgetRepository: EnvelopeBudgetRepository,
+    financialMovementRepository: FinancialMovementRepository
 ) : ViewModel() {
     val uiState: StateFlow<BudgetUiState> = combine(
         envelopeBudgetRepository.envelopes,
-        envelopeBudgetRepository.currentMonthSummary
-    ) { envelopes, summary ->
+        envelopeBudgetRepository.currentMonthSummary,
+        financialMovementRepository.movements
+    ) { envelopes, summary, movements ->
         val currentMonth = YearMonth.now().toString()
         BudgetUiState(
             yearMonth = currentMonth,
             summary = summary,
-            currentMonthEnvelopes = envelopes.filter { it.yearMonth == currentMonth }.sortedBy { it.category }
+            currentMonthEnvelopes = envelopes.filter { it.yearMonth == currentMonth }.sortedBy { it.category },
+            currentMonthExpenseMovements = movements
+                .filter { movement ->
+                    movement.type == FinancialMovementType.EXPENSE && YearMonth.from(movement.date).toString() == currentMonth
+                }
+                .sortedByDescending { it.date }
         )
     }.stateIn(
         scope = viewModelScope,
