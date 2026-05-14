@@ -1,5 +1,6 @@
 package com.unotangozero.app.presentation.budget
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,13 +43,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.unotangozero.app.domain.models.BudgetEnvelope
 import com.unotangozero.app.domain.models.BudgetEnvelopeStatus
+import com.unotangozero.app.domain.models.FinancialMovement
 import java.text.NumberFormat
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
@@ -96,7 +100,9 @@ fun BudgetScreen(
     onDeleteEnvelope: (BudgetEnvelope) -> Unit
 ) {
     var isSheetOpen by remember { mutableStateOf(false) }
+    var selectedEnvelope by remember { mutableStateOf<BudgetEnvelope?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val detailSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(formState.isEditing) {
         if (formState.isEditing) isSheetOpen = true
     }
@@ -126,6 +132,7 @@ fun BudgetScreen(
                     EnvelopeCard(
                         envelope = envelope,
                         status = statusesByEnvelopeId[envelope.id],
+                        onOpenDetails = { selectedEnvelope = envelope },
                         onStartEditing = onStartEditing,
                         onDeleteEnvelope = onDeleteEnvelope
                     )
@@ -168,6 +175,25 @@ fun BudgetScreen(
             )
         }
     }
+
+    selectedEnvelope?.let { envelope ->
+        val relatedTransactions = remember(envelope.id, uiState.currentMonthExpenseMovements) {
+            uiState.currentMonthExpenseMovements.filter { movement ->
+                movement.category?.trim()?.equals(envelope.category.trim(), ignoreCase = true) == true
+            }
+        }
+        ModalBottomSheet(
+            onDismissRequest = { selectedEnvelope = null },
+            sheetState = detailSheetState,
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            EnvelopeTransactionsSheet(
+                envelope = envelope,
+                transactions = relatedTransactions,
+                onClose = { selectedEnvelope = null }
+            )
+        }
+    }
 }
 
 @Composable
@@ -197,7 +223,7 @@ private fun EnvelopeGuidanceCard() {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Como funciona", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("Cada envelope representa uma categoria de orçamento do mês, como Alimentação, Transporte ou Lazer.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Defina um valor planejado. Depois, os gastos da categoria mostram quanto foi usado e quanto ainda resta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Toque em um envelope para ver as transações relacionadas à categoria.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -206,16 +232,22 @@ private fun EnvelopeGuidanceCard() {
 private fun EnvelopeCard(
     envelope: BudgetEnvelope,
     status: BudgetEnvelopeStatus?,
+    onOpenDetails: () -> Unit,
     onStartEditing: (BudgetEnvelope) -> Unit,
     onDeleteEnvelope: (BudgetEnvelope) -> Unit
 ) {
     val spent = status?.spentAmountInCents ?: 0L
     val available = status?.availableAmountInCents ?: envelope.allocatedAmountInCents
     val remaining = status?.remainingAmountInCents ?: (available - spent)
-    val progress = if (available > 0L) (spent.toDouble() / available.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
+    val rawProgress = if (available > 0L) (spent.toDouble() / available.toDouble()).toFloat() else 0f
+    val progress = rawProgress.coerceIn(0f, 1f)
     val isOverBudget = status?.isOverBudget == true || remaining < 0L
+    val progressColor = budgetProgressColor(rawProgress)
 
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+    Card(
+        modifier = Modifier.clickable(onClick = onOpenDetails),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -229,16 +261,75 @@ private fun EnvelopeCard(
                     Icon(Icons.Default.Delete, contentDescription = "Excluir envelope")
                 }
             }
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = progressColor,
+                trackColor = progressColor.copy(alpha = 0.18f)
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Gasto: ${money(spent)}")
                 Text(if (isOverBudget) "Estourou: ${money(-remaining)}" else "Restante: ${money(remaining)}", fontWeight = FontWeight.Bold)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(onClick = {}, label = { Text("${(progress * 100).toInt()}% usado") })
+                AssistChip(onClick = {}, label = { Text("${(rawProgress * 100).toInt()}% usado") })
+                AssistChip(onClick = {}, label = { Text(progressLabel(rawProgress)) })
                 if (envelope.rolloverEnabled) AssistChip(onClick = {}, label = { Text("Sobra acumulável") })
                 if (isOverBudget) AssistChip(onClick = {}, label = { Text("Acima do orçamento") })
             }
+        }
+    }
+}
+
+@Composable
+private fun EnvelopeTransactionsSheet(
+    envelope: BudgetEnvelope,
+    transactions: List<FinancialMovement>,
+    onClose: () -> Unit
+) {
+    val total = transactions.sumOf { it.amountInCents }
+    Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Transações de ${envelope.category}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text("Total gasto no mês: ${money(total)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (transactions.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Text(
+                    "Nenhuma despesa deste mês encontrada para esta categoria.",
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
+                items(transactions, key = { it.id }) { movement ->
+                    RelatedTransactionRow(movement)
+                }
+            }
+        }
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onClose) {
+            Text("Fechar")
+        }
+    }
+}
+
+@Composable
+private fun RelatedTransactionRow(movement: FinancialMovement) {
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(movement.description, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(movement.date.format(formatter), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(money(movement.amountInCents), fontWeight = FontWeight.ExtraBold)
         }
     }
 }
@@ -311,6 +402,18 @@ private fun SummaryLine(label: String, value: Long) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(money(value), fontWeight = FontWeight.Bold)
     }
+}
+
+private fun budgetProgressColor(progress: Float): Color = when {
+    progress < 0.70f -> Color(0xFF2E7D32)
+    progress < 1.0f -> Color(0xFFFFA000)
+    else -> Color(0xFFC62828)
+}
+
+private fun progressLabel(progress: Float): String = when {
+    progress < 0.70f -> "Seguro"
+    progress < 1.0f -> "Atenção"
+    else -> "Vermelho"
 }
 
 private fun money(cents: Long): String {
