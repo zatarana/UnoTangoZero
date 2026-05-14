@@ -3,7 +3,6 @@ package com.unotangozero.app.presentation.navigation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -35,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.unotangozero.app.presentation.dashboard.DashboardRoute
+import com.unotangozero.app.presentation.finance.FinanceRoute
 
 @Composable
 fun AppNavigation() {
@@ -71,7 +71,19 @@ fun AppNavigation() {
             modifier = Modifier.padding(paddingValues)
         ) {
             composable(AppRoute.Dashboard.route) { DashboardRoute() }
-            composable(AppRoute.Finance.route) { PlaceholderScreen("Finanças", AppRoute.Finance.route, navController) }
+            composable(AppRoute.Finance.route) {
+                FinanceRoute(
+                    onOpenAccounts = {},
+                    onOpenMovements = {},
+                    onOpenBudget = { navController.navigateTopLevel(AppRoute.Budget.route) },
+                    onOpenGoals = { navController.navigateTopLevel(AppRoute.Goals.route) },
+                    onOpenDebts = {},
+                    onOpenReports = {},
+                    onOpenProjection = {},
+                    onOpenReconciliation = {},
+                    onOpenCategories = {}
+                )
+            }
             composable(AppRoute.Tasks.route) { PlaceholderScreen("Tarefas", AppRoute.Tasks.route, navController) }
             composable(AppRoute.Habits.route) { PlaceholderScreen("Hábitos", AppRoute.Habits.route, navController) }
             composable(AppRoute.Budget.route) { PlaceholderScreen("Orçamento", AppRoute.Budget.route, navController) }
