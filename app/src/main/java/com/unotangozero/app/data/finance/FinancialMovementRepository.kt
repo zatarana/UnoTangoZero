@@ -4,12 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonDeserializer
-import com.google.gson.JsonPrimitive
-import com.google.gson.JsonSerializer
-import com.google.gson.reflect.TypeToken
 import com.unotangozero.app.data.accounts.FinancialAccountRepository
 import com.unotangozero.app.domain.models.AccountBalance
 import com.unotangozero.app.domain.models.FinancialMovement
@@ -18,8 +12,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,15 +24,8 @@ class FinancialMovementRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     accountRepository: FinancialAccountRepository
 ) {
-    private val gson: Gson = GsonBuilder()
-        .registerTypeAdapter(LocalDate::class.java, JsonSerializer<LocalDate> { src, _, _ -> JsonPrimitive(src.toString()) })
-        .registerTypeAdapter(LocalDate::class.java, JsonDeserializer { json, _, _ -> LocalDate.parse(json.asString) })
-        .registerTypeAdapter(LocalDateTime::class.java, JsonSerializer<LocalDateTime> { src, _, _ -> JsonPrimitive(src.toString()) })
-        .registerTypeAdapter(LocalDateTime::class.java, JsonDeserializer { json, _, _ -> LocalDateTime.parse(json.asString) })
-        .create()
-
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val movementsKey = stringPreferencesKey("movements_json")
-    private val listType = object : TypeToken<List<FinancialMovement>>() {}.type
 
     val movements: Flow<List<FinancialMovement>> = context.financialMovementsDataStore.data.map { preferences ->
         parse(preferences[movementsKey]).sortedByDescending { it.date }
@@ -65,19 +52,19 @@ class FinancialMovementRepository @Inject constructor(
     suspend fun addMovement(movement: FinancialMovement): Result<Unit> = runCatching {
         context.financialMovementsDataStore.edit { preferences ->
             val current = parse(preferences[movementsKey])
-            preferences[movementsKey] = gson.toJson(current + movement)
+            preferences[movementsKey] = json.encodeToString(current + movement)
         }
     }
 
     suspend fun deleteMovement(movementId: String): Result<Unit> = runCatching {
         context.financialMovementsDataStore.edit { preferences ->
             val current = parse(preferences[movementsKey])
-            preferences[movementsKey] = gson.toJson(current.filterNot { it.id == movementId })
+            preferences[movementsKey] = json.encodeToString(current.filterNot { it.id == movementId })
         }
     }
 
-    private fun parse(json: String?): List<FinancialMovement> {
-        if (json.isNullOrBlank()) return emptyList()
-        return runCatching { gson.fromJson<List<FinancialMovement>>(json, listType) }.getOrDefault(emptyList())
+    private fun parse(rawJson: String?): List<FinancialMovement> {
+        if (rawJson.isNullOrBlank()) return emptyList()
+        return runCatching { json.decodeFromString<List<FinancialMovement>>(rawJson) }.getOrDefault(emptyList())
     }
 }
