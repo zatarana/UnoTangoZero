@@ -1,8 +1,10 @@
 package com.unotangozero.app.domain.models
 
 import com.unotangozero.app.domain.enums.FinancialAccountType
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@Serializable
 data class FinancialAccount(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
@@ -14,6 +16,7 @@ data class FinancialAccount(
         get() = type == FinancialAccountType.CREDIT_CARD
 }
 
+@Serializable
 data class FinancialAccountsSummary(
     val totalAssetsInCents: Long = 0L,
     val totalCreditCardDebtInCents: Long = 0L,
