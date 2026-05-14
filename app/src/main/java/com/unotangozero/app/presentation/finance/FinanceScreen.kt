@@ -1,7 +1,9 @@
 package com.unotangozero.app.presentation.finance
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -61,6 +64,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +85,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.max
 
 @Composable
 fun FinanceRoute(
@@ -138,7 +147,17 @@ fun FinanceScreen(
     onDeleteMovement: (String) -> Unit
 ) {
     var isQuickSheetOpen by remember { mutableStateOf(false) }
-    val groupedMovements = remember(uiState.movements) { groupMovementsByDate(uiState.movements) }
+    var analysisMode by remember { mutableStateOf(AnalysisChartMode.PIE) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    val currentMonthExpenses = remember(uiState.movements) { currentMonthExpenses(uiState.movements) }
+    val categorySlices = remember(currentMonthExpenses) { expenseCategorySlices(currentMonthExpenses) }
+    val timelinePoints = remember(currentMonthExpenses) { expenseTimelinePoints(currentMonthExpenses) }
+    val filteredMovements = remember(uiState.movements, selectedCategory) {
+        selectedCategory?.let { category ->
+            uiState.movements.filter { movement -> movement.type == FinancialMovementType.EXPENSE && normalizedCategory(movement) == category }
+        } ?: uiState.movements
+    }
+    val groupedMovements = remember(filteredMovements) { groupMovementsByDate(filteredMovements) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -157,12 +176,23 @@ fun FinanceScreen(
             item { FinanceQuickAccessRow(onOpenAccounts, onOpenBudget, onOpenReports, onOpenProjection, onOpenGoals, onOpenDebts, onOpenReconciliation, onOpenCategories) }
             item { MonthSummaryCard(uiState) }
             item { FinanceDebtsPreviewCard(onOpenDebts) }
+            item {
+                FinanceAnalysisCard(
+                    mode = analysisMode,
+                    selectedCategory = selectedCategory,
+                    slices = categorySlices,
+                    timelinePoints = timelinePoints,
+                    onModeChange = { analysisMode = it },
+                    onCategorySelected = { selectedCategory = if (selectedCategory == it) null else it },
+                    onClearFilter = { selectedCategory = null }
+                )
+            }
             item { BudgetPreviewCard(uiState, onOpenBudget) }
             item { ProjectionPreviewCard(uiState, onOpenProjection) }
 
-            item { SectionTitle("Transações") }
+            item { SectionTitle(if (selectedCategory == null) "Transações" else "Transações • $selectedCategory") }
             if (groupedMovements.isEmpty()) {
-                item { EmptyCard("Nenhum lançamento ainda. Use o botão + para cadastrar receita ou despesa rapidamente.") }
+                item { EmptyCard("Nenhum lançamento encontrado para o filtro atual.") }
             } else {
                 groupedMovements.forEach { group ->
                     stickyHeader(key = "header-${group.title}") {
@@ -212,6 +242,157 @@ fun FinanceScreen(
                 isQuickSheetOpen = false
             }
         )
+    }
+}
+
+@Composable
+private fun FinanceAnalysisCard(
+    mode: AnalysisChartMode,
+    selectedCategory: String?,
+    slices: List<CategoryExpenseSlice>,
+    timelinePoints: List<TimelineExpensePoint>,
+    onModeChange: (AnalysisChartMode) -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onClearFilter: () -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Análise do mês", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("Toque em uma categoria para filtrar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = mode == AnalysisChartMode.PIE, onClick = { onModeChange(AnalysisChartMode.PIE) }, label = { Text("Pizza") })
+                    FilterChip(selected = mode == AnalysisChartMode.TIMELINE, onClick = { onModeChange(AnalysisChartMode.TIMELINE) }, label = { Text("Linha") })
+                }
+            }
+            if (selectedCategory != null) {
+                FilterChip(selected = true, onClick = onClearFilter, label = { Text("Filtro: $selectedCategory ✕") })
+            }
+            if (slices.isEmpty()) {
+                Text("Nenhuma despesa registrada neste mês.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else if (mode == AnalysisChartMode.PIE) {
+                ExpensePieAnalysis(slices = slices, selectedCategory = selectedCategory, onCategorySelected = onCategorySelected)
+            } else {
+                ExpenseTimelineAnalysis(points = timelinePoints)
+                CategoryFilterRow(slices = slices, selectedCategory = selectedCategory, onCategorySelected = onCategorySelected)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpensePieAnalysis(
+    slices: List<CategoryExpenseSlice>,
+    selectedCategory: String?,
+    onCategorySelected: (String) -> Unit
+) {
+    val total = slices.sumOf { it.amountInCents }.toFloat().coerceAtLeast(1f)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Canvas(modifier = Modifier.size(150.dp)) {
+            val strokeWidth = size.minDimension * 0.22f
+            val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
+            var startAngle = -90f
+            slices.forEachIndexed { index, slice ->
+                val sweepAngle = (slice.amountInCents / total) * 360f
+                drawArc(
+                    color = chartColor(index),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f),
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+                startAngle += sweepAngle
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            slices.take(6).forEachIndexed { index, slice ->
+                CategoryLegendRow(
+                    slice = slice,
+                    color = chartColor(index),
+                    totalInCents = slices.sumOf { it.amountInCents },
+                    selected = selectedCategory == slice.category,
+                    onClick = { onCategorySelected(slice.category) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpenseTimelineAnalysis(points: List<TimelineExpensePoint>) {
+    val maxAmount = max(1L, points.maxOfOrNull { it.amountInCents } ?: 1L).toFloat()
+    Canvas(modifier = Modifier.fillMaxWidth().height(170.dp)) {
+        if (points.isEmpty()) return@Canvas
+        val horizontalGap = if (points.size == 1) size.width else size.width / (points.size - 1)
+        val mappedPoints = points.mapIndexed { index, point ->
+            val x = if (points.size == 1) size.width / 2f else horizontalGap * index
+            val y = size.height - ((point.amountInCents / maxAmount) * size.height)
+            Offset(x, y.coerceIn(0f, size.height))
+        }
+        mappedPoints.zipWithNext().forEach { (start, end) ->
+            drawLine(
+                color = Color(0xFF6750A4),
+                start = start,
+                end = end,
+                strokeWidth = 5f,
+                cap = StrokeCap.Round
+            )
+        }
+        mappedPoints.forEach { point ->
+            drawCircle(color = Color(0xFF6750A4), radius = 7f, center = point)
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Início", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Hoje", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CategoryFilterRow(
+    slices: List<CategoryExpenseSlice>,
+    selectedCategory: String?,
+    onCategorySelected: (String) -> Unit
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(slices, key = { it.category }) { slice ->
+            FilterChip(
+                selected = selectedCategory == slice.category,
+                onClick = { onCategorySelected(slice.category) },
+                label = { Text(slice.category) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryLegendRow(
+    slice: CategoryExpenseSlice,
+    color: Color,
+    totalInCents: Long,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val percent = if (totalInCents > 0L) ((slice.amountInCents * 100) / totalInCents).toInt() else 0
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(color))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(slice.category, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            Text("$percent% • ${money(slice.amountInCents)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -544,10 +725,46 @@ private fun SummaryLine(label: String, value: Long, isMoney: Boolean = true) {
     }
 }
 
+private enum class AnalysisChartMode { PIE, TIMELINE }
+
+private data class CategoryExpenseSlice(
+    val category: String,
+    val amountInCents: Long
+)
+
+private data class TimelineExpensePoint(
+    val date: LocalDate,
+    val amountInCents: Long
+)
+
 private data class MovementDateGroup(
     val title: String,
     val movements: List<FinancialMovement>
 )
+
+private fun currentMonthExpenses(movements: List<FinancialMovement>): List<FinancialMovement> {
+    val month = YearMonth.now()
+    return movements.filter { it.type == FinancialMovementType.EXPENSE && YearMonth.from(it.date) == month }
+}
+
+private fun expenseCategorySlices(movements: List<FinancialMovement>): List<CategoryExpenseSlice> {
+    return movements
+        .groupBy { normalizedCategory(it) }
+        .map { (category, items) -> CategoryExpenseSlice(category, items.sumOf { it.amountInCents }) }
+        .filter { it.amountInCents > 0L }
+        .sortedByDescending { it.amountInCents }
+}
+
+private fun expenseTimelinePoints(movements: List<FinancialMovement>): List<TimelineExpensePoint> {
+    return movements
+        .groupBy { it.date }
+        .map { (date, items) -> TimelineExpensePoint(date, items.sumOf { it.amountInCents }) }
+        .sortedBy { it.date }
+}
+
+private fun normalizedCategory(movement: FinancialMovement): String {
+    return movement.category?.takeIf { it.isNotBlank() } ?: movement.type.displayName
+}
 
 private fun groupMovementsByDate(movements: List<FinancialMovement>): List<MovementDateGroup> {
     val today = LocalDate.now()
@@ -583,6 +800,20 @@ private fun categoryIcon(movement: FinancialMovement): ImageVector {
         movement.type == FinancialMovementType.INCOME -> Icons.Default.AttachMoney
         else -> Icons.Default.Category
     }
+}
+
+private fun chartColor(index: Int): Color {
+    val colors = listOf(
+        Color(0xFF6750A4),
+        Color(0xFF006A6A),
+        Color(0xFFB3261E),
+        Color(0xFF7D5260),
+        Color(0xFF386A20),
+        Color(0xFF8C5000),
+        Color(0xFF005DBA),
+        Color(0xFF6D5E00)
+    )
+    return colors[index % colors.size]
 }
 
 private fun money(cents: Long): String {
