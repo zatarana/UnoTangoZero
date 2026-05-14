@@ -24,6 +24,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -62,6 +63,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @Composable
 fun HabitsRoute(
@@ -123,9 +125,8 @@ fun HabitsScreen(
 ) {
     var isFormOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val dailyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.DAILY } }
-    val weeklyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.WEEKLY } }
-    val monthlyHabits = remember(habits) { habits.filter { it.frequency == HabitFrequency.MONTHLY } }
+    val todayHabits = remember(habits) { habits.filter { it.isScheduledForToday() } }
+    val otherHabits = remember(habits, todayHabits) { habits.filterNot { habit -> todayHabits.any { it.id == habit.id } } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -136,32 +137,32 @@ fun HabitsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Hábitos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Rastreie constância. Use tarefas recorrentes para compromissos com prazo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Lista do dia, sequências e recordes para manter constância.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
             item { HabitSummaryCard(habits = habits) }
-            item { TodayHabitCard(habits = habits) }
-            item { HabitGuidanceCard() }
+            item { TodayHabitCard(todayHabits = todayHabits) }
 
             if (habits.isEmpty()) {
                 item { EmptyHabitsCard() }
             } else {
-                if (dailyHabits.isNotEmpty()) {
-                    item { HabitSectionTitle("Diários", dailyHabits.size) }
-                    items(items = dailyHabits, key = { it.id }) { habit ->
-                        HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
+                item { HabitSectionTitle("Programados para hoje", todayHabits.size) }
+                if (todayHabits.isEmpty()) {
+                    item { EmptyTodayHabitsCard() }
+                } else {
+                    items(items = todayHabits, key = { it.id }) { habit ->
+                        TodayHabitItem(
+                            habit = habit,
+                            onCompleteToday = onCompleteToday,
+                            onDeleteHabit = onDeleteHabit
+                        )
                     }
                 }
-                if (weeklyHabits.isNotEmpty()) {
-                    item { HabitSectionTitle("Semanais", weeklyHabits.size) }
-                    items(items = weeklyHabits, key = { it.id }) { habit ->
-                        HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
-                    }
-                }
-                if (monthlyHabits.isNotEmpty()) {
-                    item { HabitSectionTitle("Mensais", monthlyHabits.size) }
-                    items(items = monthlyHabits, key = { it.id }) { habit ->
+
+                if (otherHabits.isNotEmpty()) {
+                    item { HabitSectionTitle("Outros hábitos", otherHabits.size) }
+                    items(items = otherHabits, key = { it.id }) { habit ->
                         HabitCard(habit = habit, onCompleteToday = onCompleteToday, onDeleteHabit = onDeleteHabit)
                     }
                 }
@@ -219,28 +220,29 @@ private fun HabitSummaryCard(habits: List<Habit>) {
     val daily = habits.count { it.frequency == HabitFrequency.DAILY }
     val weekly = habits.count { it.frequency == HabitFrequency.WEEKLY }
     val monthly = habits.count { it.frequency == HabitFrequency.MONTHLY }
+    val bestStreak = habits.maxOfOrNull { it.longestStreak } ?: 0
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${habits.size}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
             Text("hábitos ativos • $daily diário(s) • $weekly semanal(is) • $monthly mensal(is)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Maior recorde: $bestStreak dia(s)", fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
-private fun TodayHabitCard(habits: List<Habit>) {
-    val daily = habits.count { it.frequency == HabitFrequency.DAILY }
-    val weekly = habits.count { it.frequency == HabitFrequency.WEEKLY }
+private fun TodayHabitCard(todayHabits: List<Habit>) {
     val today = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+    val bestTodayStreak = todayHabits.maxOfOrNull { it.currentStreak } ?: 0
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Hoje", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             Text(today, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("$daily hábito(s) diário(s) para manter constância", fontWeight = FontWeight.Bold)
-            Text("$weekly hábito(s) semanal(is) para acompanhar ao longo da semana", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Toque em Marcar hoje no card do hábito quando cumprir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${todayHabits.size} hábito(s) programado(s) para hoje", fontWeight = FontWeight.Bold)
+            Text("Maior sequência ativa hoje: $bestTodayStreak dia(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Marque o checkbox grande quando cumprir. O streak é atualizado pelo registro do hábito.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -395,6 +397,19 @@ private fun <T> ChipSelector(
 }
 
 @Composable
+private fun EmptyTodayHabitsCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Nada programado para hoje", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Você pode criar um hábito diário ou escolher dias específicos no botão +.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
 private fun EmptyHabitsCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -403,6 +418,86 @@ private fun EmptyHabitsCard() {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Nenhum hábito ativo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("Toque no + para criar um hábito de acompanhamento. Para compromissos com data e prazo, use Tarefas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun TodayHabitItem(
+    habit: Habit,
+    onCompleteToday: (Habit) -> Unit,
+    onDeleteHabit: (Habit) -> Unit
+) {
+    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+    var checked by remember(habit.id) { mutableStateOf(habit.lastCheckIn == LocalDate.now()) }
+    var showConfetti by remember(habit.id) { mutableStateOf(false) }
+
+    LaunchedEffect(showConfetti) {
+        if (showConfetti) {
+            delay(1_200)
+            showConfetti = false
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (showConfetti) {
+                Text(
+                    text = "🎉 ✨ 🎊 ⭐ 🎉",
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    modifier = Modifier.size(44.dp),
+                    checked = checked,
+                    onCheckedChange = { isChecked ->
+                        if (isChecked && !checked) {
+                            checked = true
+                            showConfetti = true
+                            onCompleteToday(habit)
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(
+                        text = habit.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    habit.description?.let {
+                        Text(
+                            text = it,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AssistChip(onClick = {}, label = { Text(habit.frequency.displayName) })
+                        AssistChip(onClick = {}, label = { Text("Sequência: ${habit.currentStreak} dia(s)") })
+                        AssistChip(onClick = {}, label = { Text("Recorde: ${habit.longestStreak} dia(s)") })
+                    }
+                    Text(
+                        text = "Criado em ${habit.createdAt.format(formatter)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { onDeleteHabit(habit) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Excluir hábito")
+                }
+            }
         }
     }
 }
@@ -441,12 +536,14 @@ private fun HabitCard(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AssistChip(onClick = {}, label = { Text(habit.frequency.displayName) })
-                    Text(
-                        text = "Criado em ${habit.createdAt.format(formatter)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    AssistChip(onClick = {}, label = { Text("Sequência: ${habit.currentStreak}") })
+                    AssistChip(onClick = {}, label = { Text("Recorde: ${habit.longestStreak}") })
                 }
+                Text(
+                    text = "Criado em ${habit.createdAt.format(formatter)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Button(onClick = { onCompleteToday(habit) }) {
                     Text("Marcar hoje")
                 }
@@ -471,6 +568,17 @@ private fun DayOfWeek.shortPtBr(): String = when (this) {
     DayOfWeek.FRIDAY -> "Sex"
     DayOfWeek.SATURDAY -> "Sáb"
     DayOfWeek.SUNDAY -> "Dom"
+}
+
+private fun Habit.isScheduledForToday(): Boolean {
+    val today = LocalDate.now().dayOfWeek.shortPtBr()
+    val descriptionText = description.orEmpty()
+    val hasSpecificDays = descriptionText.contains("Dias:", ignoreCase = true)
+    return when (frequency) {
+        HabitFrequency.DAILY -> true
+        HabitFrequency.WEEKLY -> if (hasSpecificDays) descriptionText.contains(today, ignoreCase = true) else true
+        HabitFrequency.MONTHLY -> LocalDate.now().dayOfMonth == createdAt.dayOfMonth
+    }
 }
 
 private fun String.toComposeColor(): Color {
