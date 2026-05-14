@@ -125,26 +125,31 @@ class DebtsViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = state.editingDebt
             val status = existing?.status ?: DebtStatus.PENDING
-            val debt = existing?.copy(
-                creditor = creditor,
-                originalAmountInCents = amountInCents,
-                remainingAmountInCents = if (status == DebtStatus.PAID) 0L else amountInCents,
-                dueDate = state.dueDate,
-                monthlyInterestRate = 0.0,
-                interestAccumulatedInCents = 0L,
-                status = status,
-                description = description,
-                updatedAt = LocalDateTime.now()
-            ) ?: Debt(
-                creditor = creditor,
-                originalAmountInCents = amountInCents,
-                remainingAmountInCents = amountInCents,
-                dueDate = state.dueDate,
-                monthlyInterestRate = 0.0,
-                interestAccumulatedInCents = 0L,
-                status = DebtStatus.PENDING,
-                description = description
-            )
+            val debt = if (existing != null) {
+                val amountState = resolveEditedAmounts(existing, status, amountInCents)
+                existing.copy(
+                    creditor = creditor,
+                    originalAmountInCents = amountState.originalAmountInCents,
+                    remainingAmountInCents = amountState.remainingAmountInCents,
+                    dueDate = state.dueDate,
+                    monthlyInterestRate = 0.0,
+                    interestAccumulatedInCents = 0L,
+                    status = status,
+                    description = description,
+                    updatedAt = LocalDateTime.now()
+                )
+            } else {
+                Debt(
+                    creditor = creditor,
+                    originalAmountInCents = amountInCents,
+                    remainingAmountInCents = amountInCents,
+                    dueDate = state.dueDate,
+                    monthlyInterestRate = 0.0,
+                    interestAccumulatedInCents = 0L,
+                    status = DebtStatus.PENDING,
+                    description = description
+                )
+            }
 
             debtRepository.save(debt)
                 .onSuccess {
@@ -258,6 +263,21 @@ class DebtsViewModel @Inject constructor(
         _message.value = null
     }
 
+    private fun resolveEditedAmounts(existing: Debt, status: DebtStatus, typedAmountInCents: Long): EditedDebtAmounts {
+        if (status == DebtStatus.PAID) {
+            return EditedDebtAmounts(
+                originalAmountInCents = typedAmountInCents,
+                remainingAmountInCents = 0L
+            )
+        }
+
+        val alreadyPaidInCents = (existing.originalAmountInCents - existing.remainingAmountInCents).coerceAtLeast(0L)
+        return EditedDebtAmounts(
+            originalAmountInCents = alreadyPaidInCents + typedAmountInCents,
+            remainingAmountInCents = typedAmountInCents
+        )
+    }
+
     private fun buildDebtExpenseMovement(
         debt: Debt,
         amountInCents: Long,
@@ -299,3 +319,8 @@ class DebtsViewModel @Inject constructor(
         return NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(amountInCents / 100.0)
     }
 }
+
+private data class EditedDebtAmounts(
+    val originalAmountInCents: Long,
+    val remainingAmountInCents: Long
+)
