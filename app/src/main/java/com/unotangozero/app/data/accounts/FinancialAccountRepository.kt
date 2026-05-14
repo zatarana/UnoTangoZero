@@ -4,14 +4,14 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.unotangozero.app.domain.enums.FinancialAccountType
 import com.unotangozero.app.domain.models.FinancialAccount
 import com.unotangozero.app.domain.models.FinancialAccountsSummary
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,15 +21,11 @@ private val Context.financialAccountsDataStore by preferencesDataStore(name = "f
 class FinancialAccountRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val gson = Gson()
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val accountsKey = stringPreferencesKey("accounts_json")
-    private val listType = object : TypeToken<List<FinancialAccount>>() {}.type
 
     val accounts: Flow<List<FinancialAccount>> = context.financialAccountsDataStore.data.map { preferences ->
-        val json = preferences[accountsKey].orEmpty()
-        if (json.isBlank()) emptyList() else runCatching {
-            gson.fromJson<List<FinancialAccount>>(json, listType)
-        }.getOrDefault(emptyList())
+        accountsFromPreferences(preferences[accountsKey])
     }
 
     val summary: Flow<FinancialAccountsSummary> = accounts.map { accountsList ->
@@ -52,7 +48,7 @@ class FinancialAccountRepository @Inject constructor(
         context.financialAccountsDataStore.edit { preferences ->
             val current = accountsFromPreferences(preferences[accountsKey])
             val updated = current.filterNot { it.id == account.id } + account
-            preferences[accountsKey] = gson.toJson(updated)
+            preferences[accountsKey] = json.encodeToString(updated)
         }
     }
 
@@ -60,12 +56,12 @@ class FinancialAccountRepository @Inject constructor(
         context.financialAccountsDataStore.edit { preferences ->
             val current = accountsFromPreferences(preferences[accountsKey])
             val updated = current.map { if (it.id == accountId) it.copy(isArchived = true) else it }
-            preferences[accountsKey] = gson.toJson(updated)
+            preferences[accountsKey] = json.encodeToString(updated)
         }
     }
 
-    private fun accountsFromPreferences(json: String?): List<FinancialAccount> {
-        if (json.isNullOrBlank()) return emptyList()
-        return runCatching { gson.fromJson<List<FinancialAccount>>(json, listType) }.getOrDefault(emptyList())
+    private fun accountsFromPreferences(rawJson: String?): List<FinancialAccount> {
+        if (rawJson.isNullOrBlank()) return emptyList()
+        return runCatching { json.decodeFromString<List<FinancialAccount>>(rawJson) }.getOrDefault(emptyList())
     }
 }
