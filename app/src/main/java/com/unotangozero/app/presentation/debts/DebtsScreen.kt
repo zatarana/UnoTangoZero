@@ -391,7 +391,7 @@ private fun DebtCard(
                 TextButton(
                     onClick = {
                         onMarkAsPaid(debt, finalPaidAmountText, selectedAccountId)
-                        isPayoffDialogOpen = false
+                        if (selectedAccountId != null) isPayoffDialogOpen = false
                     }
                 ) { Text("Quitar") }
             },
