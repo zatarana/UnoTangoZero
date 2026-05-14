@@ -33,6 +33,7 @@ data class FinanceDashboardUiState(
     val monthlyBalanceInCents: Long = 0L,
     val monthlyMovementCount: Int = 0,
     val budgetSummary: MonthlyBudgetSummary? = null,
+    val budgetEnvelopeCategories: List<String> = emptyList(),
     val upcomingBills: List<PlannedBill> = emptyList(),
     val overdueBills: List<PlannedBill> = emptyList(),
     val recentMovements: List<FinancialMovement> = emptyList(),
@@ -73,6 +74,7 @@ class FinanceDashboardViewModel @Inject constructor(
             monthlyBalanceInCents = income - expenses + adjustments,
             monthlyMovementCount = monthMovements.size,
             budgetSummary = budgetSummary,
+            budgetEnvelopeCategories = budgetSummary.envelopes.map { it.envelope.category }.distinctBy { it.trim().lowercase() },
             upcomingBills = upcoming.take(5),
             overdueBills = overdue.take(5),
             recentMovements = movements.sortedByDescending { it.date }.take(5),
@@ -93,6 +95,7 @@ class FinanceDashboardViewModel @Inject constructor(
         accountId: String?,
         date: LocalDate
     ) {
+        val normalizedCategory = category.trim()
         val amountInCents = parseMoneyToCents(amountText)
         if (amountInCents <= 0L) {
             _message.value = "Digite um valor maior que zero."
@@ -102,7 +105,7 @@ class FinanceDashboardViewModel @Inject constructor(
             _message.value = "Escolha despesa ou receita."
             return
         }
-        if (category.isBlank()) {
+        if (normalizedCategory.isBlank()) {
             _message.value = "Selecione uma categoria."
             return
         }
@@ -111,17 +114,29 @@ class FinanceDashboardViewModel @Inject constructor(
             return
         }
 
+        val hasMatchingEnvelope = uiState.value.budgetEnvelopeCategories.any { envelopeCategory ->
+            envelopeCategory.trim().equals(normalizedCategory, ignoreCase = true)
+        }
+
         viewModelScope.launch {
             val movement = FinancialMovement(
                 type = type,
                 amountInCents = amountInCents,
                 date = date,
-                description = category,
-                category = category,
+                description = normalizedCategory,
+                category = normalizedCategory,
                 accountId = accountId
             )
             movementRepository.addMovement(movement)
-                .onSuccess { _message.value = "Lançamento salvo." }
+                .onSuccess {
+                    _message.value = when {
+                        type == FinancialMovementType.EXPENSE && hasMatchingEnvelope ->
+                            "Despesa salva e descontada automaticamente do envelope $normalizedCategory."
+                        type == FinancialMovementType.EXPENSE ->
+                            "Despesa salva. Nenhum envelope com a categoria $normalizedCategory foi encontrado."
+                        else -> "Lançamento salvo."
+                    }
+                }
                 .onFailure { _message.value = it.message ?: "Não foi possível salvar o lançamento." }
         }
     }
@@ -129,7 +144,7 @@ class FinanceDashboardViewModel @Inject constructor(
     fun deleteMovement(movementId: String) {
         viewModelScope.launch {
             movementRepository.deleteMovement(movementId)
-                .onSuccess { _message.value = "Lançamento excluído." }
+                .onSuccess { _message.value = "Lançamento excluído. O orçamento foi recalculado automaticamente." }
                 .onFailure { _message.value = it.message ?: "Não foi possível excluir o lançamento." }
         }
     }
