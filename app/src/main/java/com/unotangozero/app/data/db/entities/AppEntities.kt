@@ -184,3 +184,26 @@ data class NoteEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "goals", indices = [Index(value = ["deadline"]), Index(value = ["createdAt"])])
+data class GoalEntity(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val description: String,
+    val targetValueInCents: Long?,
+    val deadline: Long,
+    val colorHex: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "goal_steps",
+    foreignKeys = [ForeignKey(entity = GoalEntity::class, parentColumns = ["id"], childColumns = ["goalId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index(value = ["goalId"])]
+)
+data class GoalStepEntity(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val goalId: String,
+    val title: String,
+    val type: String
+)

@@ -8,6 +8,8 @@ import com.unotangozero.app.data.db.dao.DebtPaymentDao
 import com.unotangozero.app.data.db.dao.ExpenseDao
 import com.unotangozero.app.data.db.dao.HabitDao
 import com.unotangozero.app.data.db.dao.HabitLogDao
+import com.unotangozero.app.data.db.dao.GoalDao
+import com.unotangozero.app.data.db.dao.GoalStepDao
 import com.unotangozero.app.data.db.dao.NoteDao
 import com.unotangozero.app.data.db.dao.ReminderDao
 import com.unotangozero.app.data.db.dao.ShoppingItemDao
@@ -21,6 +23,8 @@ import com.unotangozero.app.data.db.entities.ExpenseEntity
 import com.unotangozero.app.data.db.entities.HabitEntity
 import com.unotangozero.app.data.db.entities.HabitLogEntity
 import com.unotangozero.app.data.db.entities.NoteEntity
+import com.unotangozero.app.data.db.entities.GoalEntity
+import com.unotangozero.app.data.db.entities.GoalStepEntity
 import com.unotangozero.app.data.db.entities.ReminderEntity
 import com.unotangozero.app.data.db.entities.ShoppingItemEntity
 import com.unotangozero.app.data.db.entities.ShoppingListEntity
@@ -40,9 +44,11 @@ import com.unotangozero.app.data.db.entities.TaskEntity
         ShoppingItemEntity::class,
         HabitEntity::class,
         HabitLogEntity::class,
-        NoteEntity::class
+        NoteEntity::class,
+        GoalEntity::class,
+        GoalStepEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -58,4 +64,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun habitLogDao(): HabitLogDao
     abstract fun noteDao(): NoteDao
+    abstract fun goalDao(): GoalDao
+    abstract fun goalStepDao(): GoalStepDao
 }
