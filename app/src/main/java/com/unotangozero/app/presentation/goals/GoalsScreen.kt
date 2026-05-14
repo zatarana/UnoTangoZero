@@ -86,6 +86,10 @@ fun GoalsRoute(viewModel: GoalsViewModel = hiltViewModel()) {
             onTargetValueChange = viewModel::onTargetValueChange,
             onDeadlineChange = viewModel::onDeadlineChange,
             onColorChange = viewModel::onColorChange,
+            onStepTitleChange = viewModel::onStepTitleChange,
+            onStepTypeChange = viewModel::onStepTypeChange,
+            onAddStep = viewModel::addStep,
+            onRemoveStep = viewModel::removeStep,
             onCreateGoal = viewModel::createGoal,
             onDeleteGoal = viewModel::deleteGoal
         )
@@ -102,6 +106,10 @@ fun GoalsScreen(
     onTargetValueChange: (String) -> Unit,
     onDeadlineChange: (LocalDate) -> Unit,
     onColorChange: (String) -> Unit,
+    onStepTitleChange: (String) -> Unit,
+    onStepTypeChange: (GoalStepType) -> Unit,
+    onAddStep: () -> Unit,
+    onRemoveStep: (String) -> Unit,
     onCreateGoal: () -> Unit,
     onDeleteGoal: (String) -> Unit
 ) {
@@ -117,7 +125,7 @@ fun GoalsScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Metas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Crie metas SMART com valor alvo, prazo e identificação visual.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Crie metas SMART com valor alvo, prazo, passos, hábitos e tarefas vinculadas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             item { GoalsSummaryCard(goals) }
@@ -153,6 +161,10 @@ fun GoalsScreen(
                 onTargetValueChange = onTargetValueChange,
                 onDeadlineChange = onDeadlineChange,
                 onColorChange = onColorChange,
+                onStepTitleChange = onStepTitleChange,
+                onStepTypeChange = onStepTypeChange,
+                onAddStep = onAddStep,
+                onRemoveStep = onRemoveStep,
                 onCreateGoal = {
                     onCreateGoal()
                     isFormOpen = false
@@ -167,11 +179,12 @@ fun GoalsScreen(
 private fun GoalsSummaryCard(goals: List<GoalUi>) {
     val overdue = goals.count { it.deadline.isBefore(LocalDate.now()) }
     val nextDeadline = goals.minByOrNull { it.deadline }
+    val totalSteps = goals.sumOf { it.steps.size }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Resumo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
             Text("${goals.size} meta(s)", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-            Text("$overdue atrasada(s)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("$overdue atrasada(s) • $totalSteps passo(s) vinculados", color = MaterialTheme.colorScheme.onSurfaceVariant)
             nextDeadline?.let {
                 Text("Próximo prazo: ${it.deadline.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", fontWeight = FontWeight.SemiBold)
             }
@@ -196,6 +209,13 @@ private fun GoalCard(goal: GoalUi, onDeleteGoal: (String) -> Unit) {
                     AssistChip(onClick = {}, label = { Text("Prazo: ${goal.deadline.format(formatter)}") })
                     AssistChip(onClick = {}, label = { Text(if (daysLeft >= 0) "${daysLeft}d restantes" else "Atrasada") })
                 }
+                if (goal.steps.isNotEmpty()) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(goal.steps, key = { it.id }) { step ->
+                            AssistChip(onClick = {}, label = { Text("${step.type.displayName}: ${step.title}") })
+                        }
+                    }
+                }
             }
             IconButton(onClick = { onDeleteGoal(goal.id) }) {
                 Icon(Icons.Default.Delete, contentDescription = "Excluir meta")
@@ -213,6 +233,10 @@ private fun GoalFormSheet(
     onTargetValueChange: (String) -> Unit,
     onDeadlineChange: (LocalDate) -> Unit,
     onColorChange: (String) -> Unit,
+    onStepTitleChange: (String) -> Unit,
+    onStepTypeChange: (GoalStepType) -> Unit,
+    onAddStep: () -> Unit,
+    onRemoveStep: (String) -> Unit,
     onCreateGoal: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -221,28 +245,41 @@ private fun GoalFormSheet(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = formState.deadline.toEpochMillis())
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Nova meta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-        Text("Defina um objetivo com prazo e, se fizer sentido, um valor alvo financeiro ou numérico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.title, onValueChange = onTitleChange, label = { Text("Título") }, placeholder = { Text("Ex: Reserva de emergência") }, singleLine = true)
-        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, placeholder = { Text("Ex: Juntar 3 meses de despesas") }, minLines = 2)
-        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.targetValueText, onValueChange = onTargetValueChange, label = { Text("Valor alvo") }, prefix = { Text("R$ ") }, placeholder = { Text("Opcional") }, singleLine = true)
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { isDateOpen = true }) {
-            Text("Data limite: ${formState.deadline.format(formatter)}")
-        }
-        Text("Cor", style = MaterialTheme.typography.labelLarge)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(colorOptions) { colorHex ->
-                FilterChip(selected = formState.colorHex == colorHex, onClick = { onColorChange(colorHex) }, label = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(14.dp).clip(CircleShape).background(colorHex.toComposeColor()))
-                        Text(colorHex)
-                    }
-                })
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 28.dp)
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Nova meta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                Text("Defina um objetivo e adicione passos que criam hábitos ou tarefas automaticamente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateGoal) { Text("Criar meta") }
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") }
+        item { OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.title, onValueChange = onTitleChange, label = { Text("Título") }, placeholder = { Text("Ex: Passar em concurso") }, singleLine = true) }
+        item { OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.description, onValueChange = onDescriptionChange, label = { Text("Descrição") }, placeholder = { Text("Ex: Estudar até fechar o edital") }, minLines = 2) }
+        item { OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = formState.targetValueText, onValueChange = onTargetValueChange, label = { Text("Valor alvo") }, prefix = { Text("R$ ") }, placeholder = { Text("Opcional") }, singleLine = true) }
+        item {
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { isDateOpen = true }) {
+                Text("Data limite: ${formState.deadline.format(formatter)}")
+            }
+        }
+        item {
+            Text("Cor", style = MaterialTheme.typography.labelLarge)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(colorOptions) { colorHex ->
+                    FilterChip(selected = formState.colorHex == colorHex, onClick = { onColorChange(colorHex) }, label = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(14.dp).clip(CircleShape).background(colorHex.toComposeColor()))
+                            Text(colorHex)
+                        }
+                    })
+                }
+            }
+        }
+        item { GoalStepsEditor(formState, onStepTitleChange, onStepTypeChange, onAddStep, onRemoveStep) }
+        item { Button(modifier = Modifier.fillMaxWidth(), onClick = onCreateGoal) { Text("Criar meta") } }
+        item { OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onClose) { Text("Cancelar") } }
     }
 
     if (isDateOpen) {
@@ -260,11 +297,60 @@ private fun GoalFormSheet(
 }
 
 @Composable
+private fun GoalStepsEditor(
+    formState: GoalFormUiState,
+    onStepTitleChange: (String) -> Unit,
+    onStepTypeChange: (GoalStepType) -> Unit,
+    onAddStep: () -> Unit,
+    onRemoveStep: (String) -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Passos vinculados", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("Cada passo pode virar um hábito diário ou uma tarefa com prazo da meta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = formState.stepTitle,
+                onValueChange = onStepTitleChange,
+                label = { Text("Nome do passo") },
+                placeholder = { Text("Ex: Estudar 1h por dia") },
+                singleLine = true
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(GoalStepType.entries) { type ->
+                    FilterChip(
+                        selected = formState.stepType == type,
+                        onClick = { onStepTypeChange(type) },
+                        label = { Text(type.displayName) }
+                    )
+                }
+            }
+            Button(modifier = Modifier.fillMaxWidth(), onClick = onAddStep) { Text("Adicionar passo") }
+            if (formState.steps.isEmpty()) {
+                Text("Nenhum passo adicionado ainda.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                formState.steps.forEach { step ->
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(step.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Será criado como ${step.type.displayName.lowercase()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { onRemoveStep(step.id) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Remover passo")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun EmptyGoalsCard() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Nenhuma meta criada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Toque no + para criar uma meta com prazo, valor alvo e cor.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Toque no + para criar uma meta com prazo, valor alvo, cor e passos vinculados.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
